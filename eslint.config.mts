@@ -24,4 +24,18 @@ export default defineConfig([
   {
     ignores: ["build/**", "eslint.config.mts"],
   },
+  {
+    rules: {
+      "import/extensions": "off",
+      "no-underscore-dangle": "off",
+      "no-plusplus": "off",
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["error"],
+      "no-shadow": "off",
+      "@typescript-eslint/no-shadow": ["error"],
+      "import/no-extraneous-dependencies": "off",
+      "import/no-unresolved": "off",
+      "lines-between-class-members": "off",
+    }
+  },
 ]);
