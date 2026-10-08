@@ -11,7 +11,7 @@ import startServer from "./server/startServer";
 import app from "./server";
 import connectToDB from "./database";
 
-const debugInConsole = debug("podrida:root"); // Debug section setup
+const debugInConsole = debug("user-template:root"); // Debug section setup
 
 // Enviroment varialbe grab
 const port = process.env.PORT || "4000";

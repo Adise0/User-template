@@ -7,7 +7,7 @@ const registrationData = Joi.object({
   lastName: Joi.string().required().messages({
     "any.required": "Missing Last name",
   }),
-  picture: Joi.string().required().messages({
+  picture: Joi.string().messages({
     "any.required": "Missing Picture link",
   }),
   username: Joi.string().required().messages({
@@ -15,12 +15,12 @@ const registrationData = Joi.object({
   }),
   password: Joi.string().min(8).required().messages({
     "string.min": "Password must have at lease 8 characters",
-    "string.required": "Missing password",
+    "any.required": "Missing password",
   }),
 
   email: Joi.string().email().required().messages({
     "string.email": "Invalid email",
-    "string.required": "Missing email",
+    "any.required": "Missing email",
   }),
 });
 

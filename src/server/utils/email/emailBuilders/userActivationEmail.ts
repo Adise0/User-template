@@ -75,7 +75,7 @@ const getUserActivationEmail = (activationToken: string) => `
         color: #303030;
       }
 
-      .login-button {
+      .activate-button {
         position: relative;
         background-color: #f5f5f5;
         font-family: inherit;
@@ -94,8 +94,8 @@ const getUserActivationEmail = (activationToken: string) => `
         text-decoration: none;
       }
 
-      .login-button::before {
-        content: "LOG IN TO YOUR SUPERUSER";
+      .activate-button::before {
+        content: "ACTIVATE MY ACCOUNT";
         position: absolute;
         display: flex;
         align-items: center;
@@ -107,7 +107,7 @@ const getUserActivationEmail = (activationToken: string) => `
         opacity: 0;
         transition: all ease-in-out 0.3s;
       }
-      .login-button:hover::before {
+      .activate-button:hover::before {
         opacity: 1;
       }
 
@@ -131,11 +131,23 @@ const getUserActivationEmail = (activationToken: string) => `
         padding-bottom: 0;
       }
 
-      .feedback {
+      .not-you {
         display: flex;
         flex-direction: column;
         align-items: center;
         padding: 30px;
+        background-color: #ffeeee;
+      }
+
+      .not-you .question {
+        color: #c0392b;
+      }
+
+      .cancel-link {
+        margin-top: 10px;
+        color: #c0392b;
+        font-weight: 600;
+        text-decoration: underline;
       }
 
       .links {
@@ -161,27 +173,28 @@ const getUserActivationEmail = (activationToken: string) => `
   </head>
   <body>
     <div class="container">
-      <section class="logo">My Menu</section>
+      <section class="logo">user-template</section>
       <section class="welcome">
-        <h1>Welcome to My Menu</h1>
-        <p>You're all set. Now you can create beautifully-designed, healty menus for all your centers.</p>
-        <a href="http://localhost:3000/auth/register/${activationToken}" class="login-button">LOG IN TO YOUR SUPERUSER</a>
+        <h1>Welcome to the table!</h1>
+        <p>You're almost ready to play. Activate your account below to shuffle up and start your first game of user-template.</p>
+        <a href="http://localhost:4000/auth/register/${activationToken}" class="activate-button">ACTIVATE MY ACCOUNT</a>
       </section>
       <section class="docs">
-        <h2>Learn to use My Menu like a pro</h2>
+        <h2>Learn the ropes</h2>
         <p>
-          <span class="question">Do you have any doubts on how to use a feaute of My Menu?</span><br />
-          Chances are there is an article about it. Visit out Docummentation to get all the help you will need.
+          <span class="question">Not sure how a round of user-template works?</span><br />
+          Chances are there is an article about it. Visit our documentation to get all the help you will need.
         </p>
-        <p><span class="question">The documentation was not enought to solve your issue?</span> <br />That's why we are here! Contact out top-tier support and we'll be happy to help you</p>
+        <p><span class="question">Still stuck?</span> <br />That's why we are here! Contact our support and we'll be happy to help you.</p>
         <p></p>
       </section>
-      <section class="feedback">
-        <h2>Your feedback is appreciated!</h2>
+      <section class="not-you">
+        <h2>Wasn't you?</h2>
         <p>
-          <span class="question">The documentation was not enought to solve your issue?</span> <br />
-          Share it with us! We know a program can never be complete, there is allways room for improvement.
+          <span class="question">Didn't create this account?</span><br />
+          If you didn't sign up for user-template, someone may have used your email by mistake. Cancel this registration and nothing will be created.
         </p>
+        <a href="http://localhost:4000/auth/cancel/${activationToken}" class="cancel-link">Cancel this registration</a>
       </section>
       <section class="links">
         <h2>Relevant links</h2>

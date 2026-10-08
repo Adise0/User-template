@@ -65,8 +65,10 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      // If the password is valid erase the OTP (since it's, well, One time) and save the user back to the DB with the erases OTP.
+      // If the password is valid erase the OTP (since it's, well, One time) along with its
+      // now-pointless revoke token, and save the user back to the DB.
       foundUser.credentials.otpPassword = "";
+      foundUser.otpRevokeToken = undefined;
       foundUser.save();
     } else {
       // If the  DB user does not have a password go next with the invalid password error written previously.

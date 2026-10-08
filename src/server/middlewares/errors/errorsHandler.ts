@@ -5,7 +5,7 @@ import { NextFunction, Request, Response } from "express";
 import { buiildResponseError } from "../../../data/errorObjects/responseErrors";
 import ControledError from "../../../data/errorObjects/ControledError";
 
-const debugToConsole = debug("podrida:errorHandler"); // Debug section setup
+const debugToConsole = debug("user-template:errorHandler"); // Debug section setup
 
 const errorsHandler = (
   err: ControledError,

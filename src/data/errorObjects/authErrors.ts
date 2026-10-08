@@ -18,3 +18,12 @@ export const getInvalidTokenError = (): ControledError =>
     messageToSend: "Invalid token",
     severety: ErrorSeverety.low,
   });
+
+export const getInvalidOrExpiredTokenError = (): ControledError =>
+  new ControledError({
+    name: "INVALIDOREXPIREDTOKEN",
+    message: "Invalid or expired link token",
+    statusCode: 401,
+    messageToSend: "This link is invalid or has expired",
+    severety: ErrorSeverety.low,
+  });

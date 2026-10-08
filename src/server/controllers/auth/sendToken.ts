@@ -17,9 +17,11 @@ const sendToken = (req: Request, res: Response, next: NextFunction) => {
 
   try {
     // Create the token with the created payload
+    // const newToken = jwt.sign(tokenData, process.env.TOKEN_SECRET);
     const newToken = jwt.sign(tokenData, process.env.TOKEN_SECRET, {
       expiresIn: `${userSessionDurationInHours}h`,
     });
+
 
     res.json({ token: newToken }); // send the token as the response
   } catch (error) {

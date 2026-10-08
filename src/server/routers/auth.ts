@@ -8,7 +8,16 @@ import registrationDataValidator from "../middlewares/requestPayloadValidators/r
 import registerUser from "../controllers/auth/registerUser";
 import createUser from "../middlewares/auth/userCreator";
 import duplicateKeyChecker from "../middlewares/auth/duplicateKeyChecker";
+import resolveRegistrationConflict from "../middlewares/auth/resolveRegistrationConflict";
 import keyCheckerDataValidator from "../middlewares/requestPayloadValidators/keyCheckerDataValidator";
+import signedTokenDataValidator from "../middlewares/requestPayloadValidators/signedTokenDataValidator";
+import signedIdTokenValidator from "../middlewares/auth/signedIdTokenValidator";
+import activateUser from "../controllers/auth/activateUser";
+import cancelRegistration from "../controllers/auth/cancelRegistration";
+import resendActivation from "../controllers/auth/resendActivation";
+import emailOrUsernameDataValidator from "../middlewares/requestPayloadValidators/emailOrUsernameDataValidator";
+import requestOtp from "../controllers/auth/requestOtp";
+import revokeOtp from "../controllers/auth/revokeOtp";
 
 // Router creation
 const authRouter = express.Router();
@@ -32,6 +41,40 @@ authRouter.post(
   routerEndpoints.checkKeys,
   keyCheckerDataValidator,
   duplicateKeyChecker
+);
+
+authRouter.post(
+  routerEndpoints.activate,
+  signedTokenDataValidator,
+  signedIdTokenValidator,
+  activateUser,
+  sendToken
+);
+
+authRouter.post(
+  routerEndpoints.cancelRegistration,
+  signedTokenDataValidator,
+  signedIdTokenValidator,
+  cancelRegistration
+);
+
+authRouter.post(
+  routerEndpoints.resendActivation,
+  emailOrUsernameDataValidator,
+  resendActivation
+);
+
+authRouter.post(
+  routerEndpoints.requestOtp,
+  emailOrUsernameDataValidator,
+  requestOtp
+);
+
+authRouter.post(
+  routerEndpoints.revokeOtp,
+  signedTokenDataValidator,
+  signedIdTokenValidator,
+  revokeOtp
 );
 
 export default authRouter;

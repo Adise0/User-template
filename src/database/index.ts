@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 import debug from "debug";
 import chalk from "chalk";
 
-const debugInConsole = debug("podrida:database"); // Debug section setup
+const debugInConsole = debug("user-template:database"); // Debug section setup
 
 // This promise resolved when the DB connection starts correctly and rejects if there is an error
 const connectToDB = (connectionString: string | undefined): Promise<void> =>

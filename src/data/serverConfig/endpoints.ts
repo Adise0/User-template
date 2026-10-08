@@ -8,6 +8,11 @@ export const authEndpoints = <const>{
   register: "/register",
   refreshToken: "/refreshToken",
   checkKeys: "/checkKeys",
+  activate: "/activate",
+  cancelRegistration: "/cancelRegistration",
+  resendActivation: "/resendActivation",
+  requestOtp: "/requestOtp",
+  revokeOtp: "/revokeOtp",
 };
 
 export const userEndpoints = <const>{

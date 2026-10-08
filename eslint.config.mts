@@ -36,6 +36,7 @@ export default defineConfig([
       "import/no-extraneous-dependencies": "off",
       "import/no-unresolved": "off",
       "lines-between-class-members": "off",
+      "import-x/no-extraneous-dependencies": "off",
     }
   },
 ]);

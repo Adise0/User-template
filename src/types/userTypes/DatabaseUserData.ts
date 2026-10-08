@@ -22,6 +22,7 @@ interface DatabaseUserData extends Document {
   isDisabled: boolean;
   resetPasswordOnLogin: boolean;
   verificationToken?: string;
+  otpRevokeToken?: string;
 }
 
 export default DatabaseUserData;

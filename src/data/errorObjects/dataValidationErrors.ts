@@ -1,4 +1,3 @@
-/* eslint-disable import/prefer-default-export */
 import { ErrorSeverety } from "../../types/errorTypes/ServerError";
 import ControledError from "./ControledError";
 
@@ -9,7 +8,7 @@ export const getInvalidRegistrationDataError = (
     name: "INVALIDREGISTRATIONDATA",
     message: "Invalid registration payload",
     statusCode: 400,
-    messageToSend: `Invalid registration data: ${messages.join(", ")}`,
+    messageToSend: `Invalid data: ${messages.join(", ")}`,
     severety: ErrorSeverety.low,
     extraData: {
       errors: messages.join(", "),
@@ -21,7 +20,7 @@ export const getInvalidLoginDataError = (messages: string[]): ControledError =>
     name: "INVALIDLOGINDATA",
     message: "Invalid account creation payload",
     statusCode: 400,
-    messageToSend: `Invalid login data: ${messages.join(", ")}`,
+    messageToSend: `Invalid data: ${messages.join(", ")}`,
     severety: ErrorSeverety.low,
     extraData: {
       errors: messages.join(", "),
@@ -46,6 +45,32 @@ export const getInvalidKeyCheckData = (messages: string[]): ControledError =>
   new ControledError({
     name: "INVALIDKEYCHECKDATA",
     message: "Invalid key check data",
+    statusCode: 400,
+    messageToSend: `Invalid data: ${messages.join(", ")}`,
+    severety: ErrorSeverety.low,
+    extraData: {
+      errors: messages.join(", "),
+    },
+  });
+
+export const getInvalidTokenBodyError = (messages: string[]): ControledError =>
+  new ControledError({
+    name: "INVALIDTOKENBODY",
+    message: "Invalid token payload",
+    statusCode: 400,
+    messageToSend: `Invalid data: ${messages.join(", ")}`,
+    severety: ErrorSeverety.low,
+    extraData: {
+      errors: messages.join(", "),
+    },
+  });
+
+export const getInvalidEmailOrUsernameDataError = (
+  messages: string[]
+): ControledError =>
+  new ControledError({
+    name: "INVALIDEMAILORUSERNAMEDATA",
+    message: "Invalid email/username payload",
     statusCode: 400,
     messageToSend: `Invalid data: ${messages.join(", ")}`,
     severety: ErrorSeverety.low,

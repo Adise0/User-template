@@ -42,7 +42,10 @@ const UserSchema = new Schema(
       default: false,
     },
 
+
     verificationToken: String,
+
+    otpRevokeToken: String,
 
     resetPasswordOnLogin: {
       type: Boolean,

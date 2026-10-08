@@ -65,6 +65,44 @@ export const getInvalidPasswordError = (userId: string): ControledError =>
     },
   });
 
+export const getActivationEmailFailedError = (): ControledError =>
+  new ControledError({
+    name: "ACTIVATIONEMAILFAILED",
+    message: "Failed to send the activation email",
+    statusCode: 500,
+    messageToSend:
+      "We couldn't send your activation email. Please try registering again.",
+    severety: ErrorSeverety.high,
+  });
+
+export const getAccountAlreadyActivatedError = (
+  userId: string
+): ControledError =>
+  new ControledError({
+    name: "ALREADYACTIVE",
+    message: "Account already activated",
+    statusCode: 409,
+    messageToSend: "This account has already been activated",
+    severety: ErrorSeverety.low,
+    extraData: {
+      userId,
+    },
+  });
+
+export const getPendingRegistrationCooldownError = (
+  secondsRemaining: number
+): ControledError =>
+  new ControledError({
+    name: "PENDINGREGISTRATIONCOOLDOWN",
+    message: "Registration retried too soon after a pending attempt",
+    statusCode: 429,
+    messageToSend: `An activation email was already sent. Check your inbox, or try again in ${secondsRemaining}s.`,
+    severety: ErrorSeverety.low,
+    extraData: {
+      secondsRemaining,
+    },
+  });
+
 export interface DuplicatedKeys {
   email: boolean;
   username: boolean;

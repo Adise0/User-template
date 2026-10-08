@@ -1,6 +1,7 @@
 import express from "express";
 import errorsHandler from "./middlewares/errors/errorsHandler";
 import notFoundError from "./middlewares/errors/notFoundError";
+import normalizeBody from "./middlewares/normalizeBody";
 import mainRouter from "./routers";
 
 // Security middlewares grab
@@ -15,6 +16,7 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(helmet());
 app.use(express.json());
+app.use(normalizeBody);
 
 app.use(mainRouter); // Main router is outr root router
 

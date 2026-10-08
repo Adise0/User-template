@@ -2,7 +2,7 @@ import debug from "debug";
 import { Application } from "express";
 import ServerError from "../types/errorTypes/ServerError";
 
-const debugInConsole = debug("podrida:server"); // Debug section setup
+const debugInConsole = debug("user-template:server"); // Debug section setup
 
 // This promise resolved when the server correctly starts and rejects if there is an error
 const startServer = (port: string, app: Application): Promise<void> =>
