@@ -6,7 +6,8 @@ const getMyUser = async (req: Request, res: Response, next: NextFunction) => {
   const myUserId = res.locals.userId;
 
   try {
-    const foundUser = await Users.findById(myUserId).select("information");
+    // resetPasswordOnLogin is included so the frontend can prompt for a password change.
+    const foundUser = await Users.findById(myUserId).select("information resetPasswordOnLogin");
 
     if (!foundUser) {
       const notFoundForIdError = getUserNotFoundForIdError(myUserId);

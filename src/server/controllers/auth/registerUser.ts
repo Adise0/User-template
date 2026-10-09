@@ -5,16 +5,12 @@ import Users from "../../../database/models/Users";
 import { CreatedUserData } from "../../../types/userTypes/UserData";
 import sendEmail from "../../utils/email";
 import EmailData from "../../utils/email/types";
-import { SignedIdTokenPayload } from "../../../types/authTypes/TokenPayload";
+import { SignedIdTokenPayload, TokenPurpose } from "../../../types/authTypes/TokenPayload";
 import { userActivationExpirationInMinutes } from "../../../data/serverConfig/server-config";
 import getUserActivationEmail from "../../utils/email/emailBuilders/userActivationEmail";
 import { getActivationEmailFailedError } from "../../../data/errorObjects/userErrors";
 
-const registerUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const registerUser = async (req: Request, res: Response, next: NextFunction) => {
   const newUser: CreatedUserData = req.body; // Get the user data from the req.body
   const session = await mongoose.startSession();
 
@@ -26,6 +22,7 @@ const registerUser = async (
 
       // Create the activationToken Payload.
       const tokenData: SignedIdTokenPayload = {
+        purpose: TokenPurpose.activation,
         id: createdUser.id,
       };
 

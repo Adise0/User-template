@@ -13,14 +13,13 @@ const debugInConsole = debug("user-template:database"); // Debug section setup
 // This promise resolved when the DB connection starts correctly and rejects if there is an error
 const connectToDB = (connectionString: string | undefined): Promise<void> =>
   new Promise((resolve, reject) => {
-        require('node:dns').setServers(['8.8.8.8', '1.1.1.1']);
+    require("node:dns").setServers(["8.8.8.8", "1.1.1.1"]);
     debugInConsole(chalk.whiteBright("Connecting to database..."));
     mongoose
       .connect(connectionString)
       .then(() => {
         debugInConsole(
-          chalk.whiteBright("Connection to database ") +
-            chalk.greenBright("SUCCESSFULL")
+          chalk.whiteBright("Connection to database ") + chalk.greenBright("SUCCESSFULL"),
         );
         resolve(); // Resolve on correct connection
       })

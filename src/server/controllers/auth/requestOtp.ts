@@ -1,44 +1,43 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import Users from "../../../database/models/Users";
-import DatabaseUserData from "../../../types/userTypes/DatabaseUserData";
-import { SignedIdTokenPayload } from "../../../types/authTypes/TokenPayload";
-import {
-  getUserDisabledError,
-  getUserNotFoundForUsernameOrEmailError,
-} from "../../../data/errorObjects/userErrors";
+import { SignedIdTokenPayload, TokenPurpose } from "../../../types/authTypes/TokenPayload";
 import generateOTP from "../../utils/auth/generateOTP";
 import hashPassword from "../../utils/auth/hashPassword";
 import sendEmail from "../../utils/email";
 import EmailData from "../../utils/email/types";
 import getOtpEmail from "../../utils/email/emailBuilders/otpEmail";
-import { otpRevokeExpirationInHours } from "../../../data/serverConfig/server-config";
+import {
+  otpExpirationInMinutes,
+  otpRetryCooldownInSeconds,
+} from "../../../data/serverConfig/server-config";
+import getTokenAgeInSeconds from "../../utils/auth/getTokenAgeInSeconds";
+import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
+import {
+  logEmailRequestError,
+  respondEmailRequestAccepted,
+} from "../../utils/respondEmailRequestAccepted";
 
-const requestOtp = async (req: Request, res: Response, next: NextFunction) => {
+const requestOtp = async (req: Request, res: Response) => {
   const { email } = req.body; // Grab the email (or username) left in the body by the request validator.
 
+  // Answer right away with the same response whatever happens below (see respondEmailRequestAccepted).
+  respondEmailRequestAccepted(res);
+
   try {
-    let foundUser: DatabaseUserData | null = null;
+    const foundUser = await findUserByEmailOrUsername(email); // Get the user from the database by email or username.
 
-    foundUser = await Users.findOne({ "credentials.email": email }); // Get the user from the database by email.
-
-    // If no user matches the email check if one matches the username
-    if (!foundUser) {
-      foundUser = await Users.findOne({ "credentials.username": email });
-    }
-
-    // If no user matches the email or username write the error and go next.
-    if (!foundUser) {
-      const userNotFoundError =
-        getUserNotFoundForUsernameOrEmailError(email);
-      next(userNotFoundError);
+    // Silently do nothing if no user matches, it's disabled, or it's still pending activation
+    // (login would refuse it anyway).
+    if (!foundUser || foundUser.isDisabled || foundUser.verificationToken) {
       return;
     }
 
-    // If the user is disabled write the error and go next.
-    if (foundUser.isDisabled) {
-      const userDisabledError = getUserDisabledError(foundUser.id);
-      next(userDisabledError);
+    // Throttle repeated OTP requests for the same account. The revoke token is issued together
+    // with the OTP, so its age is the age of the pending OTP.
+    if (
+      foundUser.otpRevokeToken &&
+      getTokenAgeInSeconds(foundUser.otpRevokeToken) < otpRetryCooldownInSeconds
+    ) {
       return;
     }
 
@@ -47,12 +46,14 @@ const requestOtp = async (req: Request, res: Response, next: NextFunction) => {
 
     // Create the "wasn't you?" revoke token Payload.
     const revokeTokenData: SignedIdTokenPayload = {
+      purpose: TokenPurpose.otpRevoke,
       id: foundUser.id,
     };
 
-    // Create the revoke token with the created payload.
+    // Create the revoke token with the created payload. It expires together with the OTP, after
+    // that there's nothing left to revoke.
     const otpRevokeToken = jwt.sign(revokeTokenData, process.env.TOKEN_SECRET, {
-      expiresIn: `${otpRevokeExpirationInHours}h`,
+      expiresIn: `${otpExpirationInMinutes}m`,
     });
 
     // Create the emailData object for the mail function.
@@ -63,23 +64,19 @@ const requestOtp = async (req: Request, res: Response, next: NextFunction) => {
       to: foundUser.credentials.email,
     };
 
-    try {
-      // Send the email with the plaintext OTP.
-      await sendEmail(emailData);
-    } catch {
-      // TODO: ADD SOME SORT OF BACKLOG FOR EMAIL RE-TRY
-    }
+    // Send the email with the plaintext OTP BEFORE storing it: if it fails (it throws), a
+    // previously sent OTP stays usable instead of being replaced by one nobody received.
+    // TODO: ADD SOME SORT OF BACKLOG FOR EMAIL RE-TRY
+    await sendEmail(emailData);
 
-    // Store the hashed OTP and the raw revoke token, and save the user back to the DB.
+    // Store the hashed OTP, its expiration, a fresh attempt counter and the raw revoke token, and save the user back to the DB.
     foundUser.credentials.otpPassword = hashedOtp;
+    foundUser.credentials.otpExpiresAt = new Date(Date.now() + otpExpirationInMinutes * 60 * 1000);
+    foundUser.credentials.otpAttempts = 0;
     foundUser.otpRevokeToken = otpRevokeToken;
     await foundUser.save();
-
-    res.status(200).json({
-      message: "OTP sent",
-    });
   } catch (error) {
-    next(error);
+    logEmailRequestError("OTP request", error);
   }
 };
 

@@ -6,11 +6,7 @@ import { getUserNotFoundForIdError } from "../../../data/errorObjects/userErrors
 // Handles the "wasn't you?" link on the password reset email: invalidates a reset request that
 // wasn't made by the account owner. Uses the same token/field as resetPassword, just a different
 // action, and leaves the current password untouched.
-const cancelPasswordReset = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const cancelPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
   const { userId, token } = res.locals; // Grab the userId and raw token left by the signedIdTokenValidator.
 
   try {
@@ -25,10 +21,7 @@ const cancelPasswordReset = async (
 
     // If there's no pending reset, or the token doesn't match the one on record (stale/already
     // used/already cancelled), treat it the same way: nothing left to cancel.
-    if (
-      !foundUser.resetPasswordToken ||
-      foundUser.resetPasswordToken !== token
-    ) {
+    if (!foundUser.resetPasswordToken || foundUser.resetPasswordToken !== token) {
       const invalidOrExpiredTokenError = getInvalidOrExpiredTokenError();
       next(invalidOrExpiredTokenError);
       return;

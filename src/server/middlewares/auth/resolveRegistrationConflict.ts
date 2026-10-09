@@ -15,19 +15,12 @@ import getTokenAgeInSeconds from "../../utils/auth/getTokenAgeInSeconds";
 // it and let the new registration through. Anything else (an already-active account, or two
 // different accounts each holding one of the requested keys) is a genuine conflict and still
 // hard-fails.
-const resolveRegistrationConflict = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const resolveRegistrationConflict = async (req: Request, res: Response, next: NextFunction) => {
   const { email, username } = res.locals; // Get the keys from the res.locals
 
   try {
     const usersWithKeysFound = await Users.find({
-      $or: [
-        { "information.email": email || "" },
-        { "information.username": username || "" },
-      ],
+      $or: [{ "information.email": email || "" }, { "information.username": username || "" }],
     });
 
     if (!usersWithKeysFound.length) {
@@ -36,18 +29,13 @@ const resolveRegistrationConflict = async (
     }
 
     const [firstMatch] = usersWithKeysFound;
-    const isSingleAccount = usersWithKeysFound.every(
-      (userFound) => userFound.id === firstMatch.id
-    );
+    const isSingleAccount = usersWithKeysFound.every((userFound) => userFound.id === firstMatch.id);
 
     if (isSingleAccount && firstMatch.verificationToken) {
-      const secondsSincePending = getTokenAgeInSeconds(
-        firstMatch.verificationToken
-      );
+      const secondsSincePending = getTokenAgeInSeconds(firstMatch.verificationToken);
 
       if (secondsSincePending < registrationRetryCooldownInSeconds) {
-        const secondsRemaining =
-          registrationRetryCooldownInSeconds - secondsSincePending;
+        const secondsRemaining = registrationRetryCooldownInSeconds - secondsSincePending;
         next(getPendingRegistrationCooldownError(secondsRemaining));
         return;
       }

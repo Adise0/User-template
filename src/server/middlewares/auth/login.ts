@@ -8,56 +8,61 @@ import {
   getUserDisabledError,
   getUserNotFoundForUsernameOrEmailError,
 } from "../../../data/errorObjects/userErrors";
+import { otpMaxAttempts } from "../../../data/serverConfig/server-config";
+import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
+import clearOtp from "../../utils/auth/clearOtp";
 
-import DatabaseUserData from "../../../types/userTypes/DatabaseUserData";
+// Hash of a random string nobody knows. When there's no real hash to compare against (unknown
+// user, no password set), the password is still compared against this one so the response takes
+// as long as a real check - otherwise the timing alone would tell which accounts exist.
+const dummyPasswordHash = "$2b$10$ZUlB8C4Y.KvyMyCD95oHTOxKqN.JuWmQeshYADw0Qt9IrO3jt8vf2";
 
 const login = async (req: Request, res: Response, next: NextFunction) => {
   const loginData: LoginData = req.body; // Grab the login data left in the body by the request validator.
 
   try {
-    let foundUser: DatabaseUserData | null = null;
+    const foundUser = await findUserByEmailOrUsername(loginData.email); // Get the user from the database by email or username.
 
-    foundUser = await Users.findOne({
-      "credentials.email": loginData.email,
-    }); // Get the user from the database by email.
-
-    // If no user matches the email check if one matches the username
+    // If no user matches the email or username burn the same time a real check would, write the error and go next.
     if (!foundUser) {
-      foundUser = await Users.findOne({
-        "credentials.username": loginData.email,
-      }); // Get the user from the database by email.
-    }
-
-    // If no user matches the email or username write the error and go next.
-    if (!foundUser) {
-      const userNotFoundForEmailError = getUserNotFoundForUsernameOrEmailError(
-        loginData.email
-      );
+      await bcrypt.compare(loginData.password, dummyPasswordHash);
+      const userNotFoundForEmailError = getUserNotFoundForUsernameOrEmailError(loginData.email);
       next(userNotFoundForEmailError);
-      return;
-    }
-
-    // If the user is disabled write the error and go next.
-    if (foundUser.isDisabled) {
-      const userDisabledError = getUserDisabledError(foundUser.id);
-      next(userDisabledError);
       return;
     }
 
     const invalidPasswordError = getInvalidPasswordError(foundUser.id); // Write the invalid password error.
 
     if (loginData.withOtp) {
-      // If the request is made with OTP and the DB user does not have one go next with the invalid password error written previously.
-      if (!foundUser.credentials.otpPassword) {
+      const { otpPassword, otpExpiresAt } = foundUser.credentials;
+
+      // If the DB user has no OTP, or it has expired, go next with the invalid password error written previously.
+      if (!otpPassword || !otpExpiresAt || otpExpiresAt.getTime() < Date.now()) {
+        await bcrypt.compare(loginData.password, dummyPasswordHash);
+        next(invalidPasswordError);
+        return;
+      }
+
+      // Atomically reserve one attempt BEFORE checking the code, so a burst of parallel guesses
+      // can't all slip in before the counter catches up.
+      const reservedAttempt = await Users.findOneAndUpdate(
+        {
+          _id: foundUser.id,
+          "credentials.otpAttempts": { $lt: otpMaxAttempts },
+        },
+        { $inc: { "credentials.otpAttempts": 1 } },
+      );
+
+      // Out of attempts: wipe the OTP so it can't be guessed any further, the user has to request a new one.
+      if (!reservedAttempt) {
+        clearOtp(foundUser);
+        await foundUser.save();
         next(invalidPasswordError);
         return;
       }
 
       // Check if the OTP is valid.
-      const isPasswordValid = await bcrypt.compare(
-        loginData.password,
-        foundUser.credentials.otpPassword
-      );
+      const isPasswordValid = await bcrypt.compare(loginData.password, otpPassword);
 
       // If the password is invalid go next with the invalid password error written previously.
       if (!isPasswordValid) {
@@ -65,29 +70,31 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      // If the password is valid erase the OTP (since it's, well, One time) along with its
-      // now-pointless revoke token, and save the user back to the DB.
-      foundUser.credentials.otpPassword = "";
-      foundUser.otpRevokeToken = undefined;
-      foundUser.save();
+      // If the password is valid erase the OTP (since it's, well, One time) along with everything
+      // tied to it, and save the user back to the DB.
+      clearOtp(foundUser);
+      await foundUser.save();
     } else {
-      // If the  DB user does not have a password go next with the invalid password error written previously.
-      if (!foundUser.credentials.password) {
-        next(invalidPasswordError);
-        return;
-      }
-
-      // Check if the password is valid.
+      // Check if the password is valid (against the dummy hash if the DB user has none, to keep the timing the same).
       const isPasswordValid = await bcrypt.compare(
         loginData.password.toString(),
-        foundUser.credentials.password
+        foundUser.credentials.password || dummyPasswordHash,
       );
 
-      // If the  DB user does not have a password go next with the invalid password error written previously.
-      if (!isPasswordValid) {
+      // If the password is invalid (or the DB user doesn't have one) go next with the invalid password error written previously.
+      if (!foundUser.credentials.password || !isPasswordValid) {
         next(invalidPasswordError);
         return;
       }
+    }
+
+    // Only once the credentials are proven is it safe to reveal anything about the account's state.
+
+    // If the user is disabled write the error and go next.
+    if (foundUser.isDisabled) {
+      const userDisabledError = getUserDisabledError(foundUser.id);
+      next(userDisabledError);
+      return;
     }
 
     // If the login is correct but the user is not yet activated write the error and go next

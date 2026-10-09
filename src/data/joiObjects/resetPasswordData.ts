@@ -1,11 +1,11 @@
 import Joi from "joi";
+import { JoiPassword } from "./joiTypes";
 
 const resetPasswordData = Joi.object({
   token: Joi.string().required().messages({
     "any.required": "Missing token",
   }),
-  password: Joi.string().min(8).required().messages({
-    "string.min": "Password must have at lease 8 characters",
+  password: JoiPassword().required().messages({
     "any.required": "Missing password",
   }),
 });

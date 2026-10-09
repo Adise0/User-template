@@ -1,14 +1,10 @@
 import { NextFunction, Request, Response } from "express";
-import { getInvalidTokenBodyError } from "../../../data/errorObjects/dataValidationErrors";
+import { getValidationError } from "../../../data/errorObjects/dataValidationErrors";
 import signedTokenData from "../../../data/joiObjects/signedTokenData";
 
 // Shared by every endpoint that takes a single signed link token in the body
 // (activate, cancelRegistration, revokeOtp, ...).
-const signedTokenDataValidator = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const signedTokenDataValidator = (req: Request, res: Response, next: NextFunction) => {
   // Options to tell Joi how to validate the payload
   const joiValidationOptions = {
     abortEarly: false,
@@ -17,17 +13,11 @@ const signedTokenDataValidator = (
   };
 
   // Use the signedTokenData Joi object to validate the request body. (This object is found in data/JoiObjects)
-  const { error, value } = signedTokenData.validate(
-    req.body,
-    joiValidationOptions
-  );
+  const { error, value } = signedTokenData.validate(req.body, joiValidationOptions);
 
   // If the validation fails write an error and go next.
   if (error) {
-    const detailsString = error.details.map((detail) => detail.message);
-    const invalidTokenBodyError = getInvalidTokenBodyError(detailsString);
-
-    next(invalidTokenBodyError);
+    next(getValidationError(error, "token"));
     return;
   }
 

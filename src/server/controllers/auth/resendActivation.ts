@@ -1,15 +1,6 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import Users from "../../../database/models/Users";
-import DatabaseUserData from "../../../types/userTypes/DatabaseUserData";
-import { SignedIdTokenPayload } from "../../../types/authTypes/TokenPayload";
-import {
-  getAccountAlreadyActivatedError,
-  getActivationEmailFailedError,
-  getPendingRegistrationCooldownError,
-  getUserDisabledError,
-  getUserNotFoundForUsernameOrEmailError,
-} from "../../../data/errorObjects/userErrors";
+import { SignedIdTokenPayload, TokenPurpose } from "../../../types/authTypes/TokenPayload";
 import sendEmail from "../../utils/email";
 import EmailData from "../../utils/email/types";
 import getUserActivationEmail from "../../utils/email/emailBuilders/userActivationEmail";
@@ -18,60 +9,35 @@ import {
   userActivationExpirationInMinutes,
 } from "../../../data/serverConfig/server-config";
 import getTokenAgeInSeconds from "../../utils/auth/getTokenAgeInSeconds";
+import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
+import {
+  logEmailRequestError,
+  respondEmailRequestAccepted,
+} from "../../utils/respondEmailRequestAccepted";
 
-const resendActivation = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const resendActivation = async (req: Request, res: Response) => {
   const { email } = req.body; // Grab the email (or username) left in the body by the request validator.
 
+  // Answer right away with the same response whatever happens below (see respondEmailRequestAccepted).
+  respondEmailRequestAccepted(res);
+
   try {
-    let foundUser: DatabaseUserData | null = null;
+    const foundUser = await findUserByEmailOrUsername(email); // Get the user from the database by email or username.
 
-    foundUser = await Users.findOne({ "credentials.email": email }); // Get the user from the database by email.
-
-    // If no user matches the email check if one matches the username
-    if (!foundUser) {
-      foundUser = await Users.findOne({ "credentials.username": email });
-    }
-
-    // If no user matches the email or username write the error and go next.
-    if (!foundUser) {
-      const userNotFoundError = getUserNotFoundForUsernameOrEmailError(email);
-      next(userNotFoundError);
-      return;
-    }
-
-    // If the user is disabled write the error and go next.
-    if (foundUser.isDisabled) {
-      const userDisabledError = getUserDisabledError(foundUser.id);
-      next(userDisabledError);
-      return;
-    }
-
-    // If there's no pending verificationToken the account is already active - nothing to resend.
-    if (!foundUser.verificationToken) {
-      const alreadyActivatedError = getAccountAlreadyActivatedError(
-        foundUser.id
-      );
-      next(alreadyActivatedError);
+    // Silently do nothing if no user matches, it's disabled, or there's no pending
+    // verificationToken (the account is already active - nothing to resend).
+    if (!foundUser || foundUser.isDisabled || !foundUser.verificationToken) {
       return;
     }
 
     // Throttle repeated resends of the same pending signup.
-    const secondsSinceLastSend = getTokenAgeInSeconds(
-      foundUser.verificationToken
-    );
-    if (secondsSinceLastSend < registrationRetryCooldownInSeconds) {
-      const secondsRemaining =
-        registrationRetryCooldownInSeconds - secondsSinceLastSend;
-      next(getPendingRegistrationCooldownError(secondsRemaining));
+    if (getTokenAgeInSeconds(foundUser.verificationToken) < registrationRetryCooldownInSeconds) {
       return;
     }
 
     // Create a fresh activationToken Payload.
     const tokenData: SignedIdTokenPayload = {
+      purpose: TokenPurpose.activation,
       id: foundUser.id,
     };
 
@@ -88,25 +54,16 @@ const resendActivation = async (
       to: foundUser.information.email,
     };
 
-    try {
-      // Send the email BEFORE overwriting the stored token: if it fails, the old (still valid)
-      // link stays intact instead of being replaced by one nobody received.
-      await sendEmail(emailData);
-    } catch {
-      next(getActivationEmailFailedError());
-      return;
-    }
+    // Send the email BEFORE overwriting the stored token: if it fails (it throws), the old (still
+    // valid) link stays intact instead of being replaced by one nobody received.
+    await sendEmail(emailData);
 
     // The new email went out - now it's safe to replace the old token (which also invalidates
     // any previously issued activation/cancel links for this account).
     foundUser.verificationToken = verificationToken;
     await foundUser.save();
-
-    res.status(200).json({
-      message: "Activation email resent",
-    });
   } catch (error) {
-    next(error);
+    logEmailRequestError("activation resend", error);
   }
 };
 

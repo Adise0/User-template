@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { JoiPassword } from "./joiTypes";
 
 const registrationData = Joi.object({
   firstName: Joi.string().required().messages({
@@ -13,12 +14,12 @@ const registrationData = Joi.object({
   username: Joi.string().required().messages({
     "any.required": "Missing username",
   }),
-  password: Joi.string().min(8).required().messages({
-    "string.min": "Password must have at lease 8 characters",
+  password: JoiPassword().required().messages({
     "any.required": "Missing password",
   }),
 
-  email: Joi.string().email().required().messages({
+  // Lowercased so "Foo@x.com" and "foo@x.com" can't end up as two separate accounts.
+  email: Joi.string().email().lowercase().required().messages({
     "string.email": "Invalid email",
     "any.required": "Missing email",
   }),

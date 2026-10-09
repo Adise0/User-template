@@ -24,6 +24,13 @@ import requestPasswordReset from "../controllers/auth/requestPasswordReset";
 import resetPassword from "../controllers/auth/resetPassword";
 import cancelPasswordReset from "../controllers/auth/cancelPasswordReset";
 import resetPasswordDataValidator from "../middlewares/requestPayloadValidators/resetPasswordDataValidator";
+import changePasswordDataValidator from "../middlewares/requestPayloadValidators/changePasswordDataValidator";
+import freshAuthValidator from "../middlewares/auth/freshAuthValidator";
+import changePassword from "../controllers/auth/changePassword";
+import signOutEverywhere from "../controllers/auth/signOutEverywhere";
+import deleteAccount from "../controllers/auth/deleteAccount";
+import { emailRateLimiter, loginRateLimiter } from "../middlewares/rateLimiters";
+import { TokenPurpose } from "../../types/authTypes/TokenPayload";
 
 // Router creation
 const authRouter = express.Router();
@@ -42,49 +49,46 @@ const routerEndpoints = endpoints.auth;
 authRouter.all(
   routerEndpoints.login,
   method(Methods.POST),
+  loginRateLimiter,
   loginDataValidator,
   login,
-  sendToken
+  sendToken,
 );
 
-authRouter.all(
-  routerEndpoints.refreshToken,
-  method(Methods.GET),
-  tokenValidator,
-  sendToken
-);
+authRouter.all(routerEndpoints.refreshToken, method(Methods.GET), tokenValidator, sendToken);
 
 authRouter.all(
   routerEndpoints.register,
   method(Methods.POST),
+  emailRateLimiter,
   registrationDataValidator,
   createUser,
   resolveRegistrationConflict,
-  registerUser
+  registerUser,
 );
 
 authRouter.all(
   routerEndpoints.checkKeys,
   method(Methods.POST),
   keyCheckerDataValidator,
-  duplicateKeyChecker
+  duplicateKeyChecker,
 );
 
 authRouter.all(
   routerEndpoints.activate,
   method(Methods.POST),
   signedTokenDataValidator,
-  signedIdTokenValidator,
+  signedIdTokenValidator(TokenPurpose.activation),
   activateUser,
-  sendToken
+  sendToken,
 );
 
 authRouter.all(
   routerEndpoints.cancelRegistration,
   method(Methods.POST),
   signedTokenDataValidator,
-  signedIdTokenValidator,
-  cancelRegistration
+  signedIdTokenValidator(TokenPurpose.activation),
+  cancelRegistration,
 );
 
 // DEBUG: lets the email links hit these directly via a plain GET, with no frontend page in
@@ -94,9 +98,9 @@ authRouter.all(
   method(Methods.GET),
   tokenParamToBody,
   signedTokenDataValidator,
-  signedIdTokenValidator,
+  signedIdTokenValidator(TokenPurpose.activation),
   activateUser,
-  sendToken
+  sendToken,
 );
 
 authRouter.all(
@@ -104,30 +108,32 @@ authRouter.all(
   method(Methods.GET),
   tokenParamToBody,
   signedTokenDataValidator,
-  signedIdTokenValidator,
-  cancelRegistration
+  signedIdTokenValidator(TokenPurpose.activation),
+  cancelRegistration,
 );
 
 authRouter.all(
   routerEndpoints.resendActivation,
   method(Methods.POST),
+  emailRateLimiter,
   emailOrUsernameDataValidator,
-  resendActivation
+  resendActivation,
 );
 
 authRouter.all(
   routerEndpoints.requestOtp,
   method(Methods.POST),
+  emailRateLimiter,
   emailOrUsernameDataValidator,
-  requestOtp
+  requestOtp,
 );
 
 authRouter.all(
   routerEndpoints.revokeOtp,
   method(Methods.POST),
   signedTokenDataValidator,
-  signedIdTokenValidator,
-  revokeOtp
+  signedIdTokenValidator(TokenPurpose.otpRevoke),
+  revokeOtp,
 );
 
 // DEBUG: see note above - plain GET variant for the email link until a frontend exists.
@@ -136,31 +142,32 @@ authRouter.all(
   method(Methods.GET),
   tokenParamToBody,
   signedTokenDataValidator,
-  signedIdTokenValidator,
-  revokeOtp
+  signedIdTokenValidator(TokenPurpose.otpRevoke),
+  revokeOtp,
 );
 
 authRouter.all(
   routerEndpoints.requestPasswordReset,
   method(Methods.POST),
+  emailRateLimiter,
   emailOrUsernameDataValidator,
-  requestPasswordReset
+  requestPasswordReset,
 );
 
 authRouter.all(
   routerEndpoints.resetPassword,
   method(Methods.POST),
   resetPasswordDataValidator,
-  signedIdTokenValidator,
-  resetPassword
+  signedIdTokenValidator(TokenPurpose.passwordReset),
+  resetPassword,
 );
 
 authRouter.all(
   routerEndpoints.cancelPasswordReset,
   method(Methods.POST),
   signedTokenDataValidator,
-  signedIdTokenValidator,
-  cancelPasswordReset
+  signedIdTokenValidator(TokenPurpose.passwordReset),
+  cancelPasswordReset,
 );
 
 // DEBUG: see note above - plain GET variant for the email link until a frontend exists.
@@ -170,8 +177,35 @@ authRouter.all(
   method(Methods.GET),
   tokenParamToBody,
   signedTokenDataValidator,
-  signedIdTokenValidator,
-  cancelPasswordReset
+  signedIdTokenValidator(TokenPurpose.passwordReset),
+  cancelPasswordReset,
+);
+
+// Sensitive actions on the logged in account: they need a fresh session (freshAuthValidator)
+// instead of asking for the current password.
+authRouter.all(
+  routerEndpoints.changePassword,
+  method(Methods.POST),
+  tokenValidator,
+  freshAuthValidator,
+  changePasswordDataValidator,
+  changePassword,
+  sendToken,
+);
+
+authRouter.all(
+  routerEndpoints.deleteAccount,
+  method(Methods.DELETE),
+  tokenValidator,
+  freshAuthValidator,
+  deleteAccount,
+);
+
+authRouter.all(
+  routerEndpoints.signOutEverywhere,
+  method(Methods.POST),
+  tokenValidator,
+  signOutEverywhere,
 );
 
 export default authRouter;

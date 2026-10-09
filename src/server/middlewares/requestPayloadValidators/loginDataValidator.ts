@@ -1,12 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { getInvalidLoginDataError } from "../../../data/errorObjects/dataValidationErrors";
+import { getValidationError } from "../../../data/errorObjects/dataValidationErrors";
 import loginData from "../../../data/joiObjects/loginData";
 
-const loginDataValidator = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const loginDataValidator = (req: Request, res: Response, next: NextFunction) => {
   // Options to tell Joi how to validate the payload
   const joiValidationOptions = {
     abortEarly: false,
@@ -18,10 +14,7 @@ const loginDataValidator = (
 
   // If the validation fails write an error and go next.
   if (error) {
-    const invalidLoginDataError = getInvalidLoginDataError(
-      error.details.map((detail) => detail.message)
-    );
-    next(invalidLoginDataError);
+    next(getValidationError(error, "login"));
     return;
   }
 

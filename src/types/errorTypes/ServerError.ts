@@ -1,17 +1,20 @@
+import { ErrorCode, FieldErrors } from "./ErrorCode";
+
 export enum ErrorSeverety {
   high = "HIGH",
   medium = "MEDIUM",
   low = "LOW",
 }
 
-interface ServerError extends Error {
-  code?: string;
-  messageToSend?: string;
-  statusCode?: number;
-  extraData?: {
-    [key: string]: unknown;
-  };
+interface ServerError {
+  code: ErrorCode; // Sent to the client: what the frontend switches on.
+  message: string; // Internal message, only logged.
+  messageToSend: string; // Sent to the client: human-readable fallback.
+  statusCode: number;
   severety: ErrorSeverety;
+  fields?: FieldErrors; // Sent to the client: per-field problems, for forms.
+  details?: Record<string, unknown>; // Sent to the client: extra public data (eg. retryAfterSeconds).
+  extraData?: Record<string, unknown>; // NEVER sent to the client, only logged (ids, emails...).
 }
 
 export default ServerError;

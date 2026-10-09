@@ -8,11 +8,7 @@ import {
 
 // Handles the "wasn't you?" link on the activation email: deletes a pending (not yet
 // activated) account. Uses the same token/field as activateUser, just a different action.
-const cancelRegistration = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const cancelRegistration = async (req: Request, res: Response, next: NextFunction) => {
   const { userId, token } = res.locals; // Grab the userId and raw token left by the signedIdTokenValidator.
 
   try {

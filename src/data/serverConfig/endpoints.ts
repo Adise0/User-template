@@ -16,6 +16,9 @@ export const authEndpoints = <const>{
   requestPasswordReset: "/requestPasswordReset",
   resetPassword: "/resetPassword",
   cancelPasswordReset: "/cancelPasswordReset",
+  changePassword: "/changePassword",
+  signOutEverywhere: "/signOutEverywhere",
+  deleteAccount: "/deleteAccount",
 };
 
 export const userEndpoints = <const>{

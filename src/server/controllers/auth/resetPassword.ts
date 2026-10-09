@@ -6,12 +6,9 @@ import {
   getUserNotFoundForIdError,
 } from "../../../data/errorObjects/userErrors";
 import hashPassword from "../../utils/auth/hashPassword";
+import clearOtp from "../../utils/auth/clearOtp";
 
-const resetPassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
   const { userId, token } = res.locals; // Grab the userId and raw token left by the signedIdTokenValidator.
   const { password } = req.body; // Grab the new password left in the body by the request validator.
 
@@ -34,10 +31,7 @@ const resetPassword = async (
 
     // If there's no pending reset, or the token doesn't match the one on record (stale/already
     // used/cancelled), treat it the same way: the link is no longer valid.
-    if (
-      !foundUser.resetPasswordToken ||
-      foundUser.resetPasswordToken !== token
-    ) {
+    if (!foundUser.resetPasswordToken || foundUser.resetPasswordToken !== token) {
       const invalidOrExpiredTokenError = getInvalidOrExpiredTokenError();
       next(invalidOrExpiredTokenError);
       return;
@@ -49,8 +43,7 @@ const resetPassword = async (
     foundUser.resetPasswordOnLogin = false;
 
     // The password changed, so any pending OTP issued under the old one is dropped as well.
-    foundUser.credentials.otpPassword = "";
-    foundUser.otpRevokeToken = undefined;
+    clearOtp(foundUser);
 
     // Sign out of every session: bumping the version invalidates all previously issued auth tokens.
     foundUser.tokenVersion += 1;

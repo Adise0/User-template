@@ -18,11 +18,6 @@ const routerEndpoints = endpoints.users;
 usersRouter.use(tokenValidator);
 
 usersRouter.all(routerEndpoints.myUser, method(Methods.GET), getMyUser);
-usersRouter.all(
-  routerEndpoints.getUser,
-  method(Methods.GET),
-  getUserDataValidator,
-  getUser
-);
+usersRouter.all(routerEndpoints.getUser, method(Methods.GET), getUserDataValidator, getUser);
 
 export default usersRouter;

@@ -6,11 +6,7 @@ import {
   getUserNotFoundForIdError,
 } from "../../../data/errorObjects/userErrors";
 
-const activateUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const activateUser = async (req: Request, res: Response, next: NextFunction) => {
   const { userId, token } = res.locals; // Grab the userId and raw token left by the signedIdTokenValidator.
 
   try {

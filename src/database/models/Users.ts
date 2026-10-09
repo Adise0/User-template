@@ -34,6 +34,12 @@ const UserSchema = new Schema(
         unique: true,
       },
       otpPassword: String,
+      otpExpiresAt: Date,
+      // Counts every OTP login attempt against the current OTP, it's wiped once the limit is reached.
+      otpAttempts: {
+        type: Number,
+        default: 0,
+      },
       password: String,
     },
 
@@ -41,7 +47,6 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false,
     },
-
 
     verificationToken: String,
 
@@ -55,9 +60,10 @@ const UserSchema = new Schema(
       default: 0,
     },
 
+    // Hint for the frontend to prompt a password change after login - not enforced by the API.
     resetPasswordOnLogin: {
       type: Boolean,
-      default: true,
+      default: false,
     },
   },
   {
@@ -71,7 +77,7 @@ const UserSchema = new Schema(
         delete ret.tokenVersion;
       },
     },
-  }
+  },
 );
 
 const Users = model("Users", UserSchema, "users");

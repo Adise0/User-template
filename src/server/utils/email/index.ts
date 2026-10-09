@@ -1,4 +1,3 @@
-
 import nodemailer from "nodemailer";
 import debug from "debug";
 import chalk from "chalk";
@@ -29,9 +28,9 @@ const sendEmail = (emailData: EmailData): Promise<void> =>
         reject(error);
         debugToConsole(
           chalk.redBright(
-            `Error while sending ${emailData.internalEmailName} email to ${emailToSend.to}: \n`
+            `Error while sending ${emailData.internalEmailName} email to ${emailToSend.to}: \n`,
           ),
-          chalk.whiteBright(error.message)
+          chalk.whiteBright(error.message),
         );
         return;
       }

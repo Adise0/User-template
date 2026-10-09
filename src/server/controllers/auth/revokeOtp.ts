@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import Users from "../../../database/models/Users";
 import { getInvalidOrExpiredTokenError } from "../../../data/errorObjects/authErrors";
 import { getUserNotFoundForIdError } from "../../../data/errorObjects/userErrors";
+import clearOtp from "../../utils/auth/clearOtp";
 
 // Handles the "wasn't you?" link on the OTP email: invalidates a one-time password that
 // wasn't requested by the account owner. Leaves the account itself untouched.
@@ -31,8 +32,7 @@ const revokeOtp = async (req: Request, res: Response, next: NextFunction) => {
     }
 
     // Invalidate the OTP and the revoke token itself (it's one-time, same as the OTP it protects).
-    foundUser.credentials.otpPassword = "";
-    foundUser.otpRevokeToken = undefined;
+    clearOtp(foundUser);
     await foundUser.save();
 
     res.status(200).json({

@@ -16,6 +16,8 @@ interface DatabaseUserData extends Document {
     email: string;
     password?: string;
     otpPassword?: string;
+    otpExpiresAt?: Date;
+    otpAttempts: number;
     username: string;
   };
 

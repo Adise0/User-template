@@ -5,19 +5,12 @@ import {
   getDuplicateKeyRegistrationError,
 } from "../../../data/errorObjects/userErrors";
 
-const duplicateKeyChecker = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+const duplicateKeyChecker = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, username, goNext } = res.locals; // Get the keys from the res.locals
 
     const usersWithKeysFound = await Users.find({
-      $or: [
-        { "information.email": email || "" },
-        { "information.username": username || "" },
-      ],
+      $or: [{ "information.email": email || "" }, { "information.username": username || "" }],
     });
 
     if (usersWithKeysFound.length) {
@@ -35,8 +28,7 @@ const duplicateKeyChecker = async (
         }
       });
 
-      const duplicatedKeysError =
-        getDuplicateKeyRegistrationError(duplicatedKeys);
+      const duplicatedKeysError = getDuplicateKeyRegistrationError(duplicatedKeys);
       next(duplicatedKeysError);
       return;
     }

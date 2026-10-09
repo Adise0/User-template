@@ -1,13 +1,12 @@
-/* eslint-disable import/prefer-default-export */
-
 import { ErrorSeverety } from "../../types/errorTypes/ServerError";
+import { ErrorCode, FieldErrorCode, FieldErrors } from "../../types/errorTypes/ErrorCode";
 import ControledError from "./ControledError";
 
-export const getUserNotFoundForUsernameOrEmailError = (
-  email: string
-): ControledError =>
+// Shares its code and message with getInvalidPasswordError on purpose: "no such account" and
+// "wrong password" must look exactly the same from the outside.
+export const getUserNotFoundForUsernameOrEmailError = (email: string): ControledError =>
   new ControledError({
-    name: "MISSINGUSER",
+    code: ErrorCode.INVALID_CREDENTIALS,
     message: "User not found",
     statusCode: 401,
     messageToSend: "Incorrect email or password",
@@ -19,7 +18,7 @@ export const getUserNotFoundForUsernameOrEmailError = (
 
 export const getUserNotFoundForIdError = (userId: string): ControledError =>
   new ControledError({
-    name: "MISSINGUSER",
+    code: ErrorCode.USER_NOT_FOUND,
     message: "User not found for Id",
     statusCode: 404,
     messageToSend: "User not found",
@@ -31,7 +30,7 @@ export const getUserNotFoundForIdError = (userId: string): ControledError =>
 
 export const getUserDisabledError = (userId: string): ControledError =>
   new ControledError({
-    name: "DISABLEDUSER",
+    code: ErrorCode.USER_DISABLED,
     message: "User disabled",
     statusCode: 403,
     messageToSend: "This user is currently disabled",
@@ -43,7 +42,7 @@ export const getUserDisabledError = (userId: string): ControledError =>
 
 export const getNotYetActivatedError = (userId: string): ControledError =>
   new ControledError({
-    name: "INACTIVEUSER",
+    code: ErrorCode.ACCOUNT_NOT_ACTIVATED,
     message: "User not active",
     statusCode: 403,
     messageToSend: "This user is not activated yet!",
@@ -55,7 +54,7 @@ export const getNotYetActivatedError = (userId: string): ControledError =>
 
 export const getInvalidPasswordError = (userId: string): ControledError =>
   new ControledError({
-    name: "BADAUTH",
+    code: ErrorCode.INVALID_CREDENTIALS,
     message: "Password is not valid",
     statusCode: 401,
     messageToSend: "Incorrect email or password",
@@ -67,19 +66,16 @@ export const getInvalidPasswordError = (userId: string): ControledError =>
 
 export const getActivationEmailFailedError = (): ControledError =>
   new ControledError({
-    name: "ACTIVATIONEMAILFAILED",
+    code: ErrorCode.ACTIVATION_EMAIL_FAILED,
     message: "Failed to send the activation email",
     statusCode: 500,
-    messageToSend:
-      "We couldn't send your activation email. Please try registering again.",
+    messageToSend: "We couldn't send your activation email. Please try registering again.",
     severety: ErrorSeverety.high,
   });
 
-export const getAccountAlreadyActivatedError = (
-  userId: string
-): ControledError =>
+export const getAccountAlreadyActivatedError = (userId: string): ControledError =>
   new ControledError({
-    name: "ALREADYACTIVE",
+    code: ErrorCode.ACCOUNT_ALREADY_ACTIVATED,
     message: "Account already activated",
     statusCode: 409,
     messageToSend: "This account has already been activated",
@@ -89,41 +85,15 @@ export const getAccountAlreadyActivatedError = (
     },
   });
 
-export const getPendingRegistrationCooldownError = (
-  secondsRemaining: number
-): ControledError =>
+export const getPendingRegistrationCooldownError = (secondsRemaining: number): ControledError =>
   new ControledError({
-    name: "PENDINGREGISTRATIONCOOLDOWN",
+    code: ErrorCode.REGISTRATION_COOLDOWN,
     message: "Registration retried too soon after a pending attempt",
     statusCode: 429,
     messageToSend: `An activation email was already sent. Check your inbox, or try again in ${secondsRemaining}s.`,
     severety: ErrorSeverety.low,
-    extraData: {
-      secondsRemaining,
-    },
-  });
-
-export const getPasswordResetEmailFailedError = (): ControledError =>
-  new ControledError({
-    name: "PASSWORDRESETEMAILFAILED",
-    message: "Failed to send the password reset email",
-    statusCode: 500,
-    messageToSend:
-      "We couldn't send your password reset email. Please try again.",
-    severety: ErrorSeverety.high,
-  });
-
-export const getPasswordResetCooldownError = (
-  secondsRemaining: number
-): ControledError =>
-  new ControledError({
-    name: "PASSWORDRESETCOOLDOWN",
-    message: "Password reset requested too soon after a previous one",
-    statusCode: 429,
-    messageToSend: `A password reset email was already sent. Check your inbox, or try again in ${secondsRemaining}s.`,
-    severety: ErrorSeverety.low,
-    extraData: {
-      secondsRemaining,
+    details: {
+      retryAfterSeconds: secondsRemaining,
     },
   });
 
@@ -135,22 +105,24 @@ export interface DuplicatedKeys {
 const getDuplicateKeyNames = (duplicatedKeys: DuplicatedKeys): string[] =>
   Object.entries(duplicatedKeys)
     .filter(([, value]) => value)
-    .map(([key]) => key.charAt(0).toUpperCase() + key.slice(1));
+    .map(([key]) => key);
 
 export const getDuplicateKeyRegistrationError = (
-  duplicatedKeys: DuplicatedKeys
-): ControledError =>
-  new ControledError({
-    name: "DUPLICATEKEY",
-    message: `Duplicate key/s: ${getDuplicateKeyNames(duplicatedKeys).join(
-      ", "
-    )}`,
+  duplicatedKeys: DuplicatedKeys,
+): ControledError => {
+  const duplicateKeyNames = getDuplicateKeyNames(duplicatedKeys);
+
+  // Mark every duplicated key as TAKEN, keyed by the same field name the request used.
+  const fields: FieldErrors = Object.fromEntries(
+    duplicateKeyNames.map((key) => [key, FieldErrorCode.TAKEN]),
+  );
+
+  return new ControledError({
+    code: ErrorCode.DUPLICATE_KEY,
+    message: `Duplicate key/s: ${duplicateKeyNames.join(", ")}`,
     severety: ErrorSeverety.low,
     statusCode: 409,
-    messageToSend: `Duplicated keys: ${getDuplicateKeyNames(
-      duplicatedKeys
-    ).join(", ")}`,
-    extraData: {
-      keys: getDuplicateKeyNames(duplicatedKeys),
-    },
+    messageToSend: `Already in use: ${duplicateKeyNames.join(", ")}`,
+    fields,
   });
+};

@@ -1,20 +1,21 @@
 import ResponseError from "../../types/errorTypes/ResponseError";
-
-/* eslint-disable import/prefer-default-export */
+import { ErrorCode } from "../../types/errorTypes/ErrorCode";
+import ControledError from "./ControledError";
 
 // Not found error builder
 export const getNotFoundError = (): ResponseError => ({
   error: true,
-  code: 404,
+  status: 404,
+  code: ErrorCode.NOT_FOUND,
   message: "Resource not found",
 });
 
-// Response error builder
-export const buiildResponseError = (
-  code: number,
-  message: string
-): ResponseError => ({
+// Response error builder: only the public parts of the error make it into the response.
+export const buildResponseError = (error: ControledError): ResponseError => ({
   error: true,
-  code,
-  message,
+  status: error.statusCode,
+  code: error.code,
+  message: error.messageToSend,
+  ...(error.fields && { fields: error.fields }),
+  ...(error.details && { details: error.details }),
 });
