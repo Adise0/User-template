@@ -43,7 +43,7 @@ const cancelRegistration = async (
     await foundUser.deleteOne();
 
     res.status(200).json({
-      message: "Registration cancelled",
+      message: "Registration cancelled. You can close this window now.",
     });
   } catch (error) {
     next(error);

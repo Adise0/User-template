@@ -3,220 +3,202 @@ const getUserActivationEmail = (activationToken: string) => `
   <head>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
       body {
-        background-color: #f5f5f5;
+        margin: 0;
+        padding: 32px 16px;
+        background-color: #f3f1ec;
+        font-family: "Poppins", sans-serif;
       }
-      .container {
+
+      .page {
         width: 100%;
         display: flex;
-        flex-direction: column;
-        align-items: center;
         justify-content: center;
-        font-family: "Poppins", sans-serif;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 480px;
+        background-color: #ffffff;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0px 10px 30px rgba(20, 40, 30, 0.12);
+      }
+
+      .header {
+        padding: 36px 30px 32px;
         text-align: center;
+        background: linear-gradient(135deg, #0f3d2e 0%, #1f5f44 100%);
+        color: #ffffff;
+      }
+
+      .suits {
+        font-size: 20px;
+        letter-spacing: 10px;
+        color: #d4af37;
+        margin-bottom: 10px;
       }
 
       .logo {
-        font-weight: 600;
-        font-size: 23px;
-        color: #424242;
-        margin: 20px;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #cfe8db;
+        margin-bottom: 18px;
       }
 
-      .welcome {
-        position: relative;
-
-        width: 100%;
-
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 30px;
-        padding-bottom: 40px;
-        color: white;
-        pointer-events: none;
-
-        transition: all ease-in-out 0.3s;
-      }
-
-      .welcome::before {
-        content: "";
-        z-index: -1;
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(90deg, #9747ff 0%, #ffa7f6 100%);
-        opacity: 1;
-        transition: all ease-in-out 0.3s;
-      }
-
-      .welcome:hover {
-        background-color: #f5f5f5;
-        background-size: 0px;
-        color: #303030;
-      }
-
-      .welcome h1 {
+      .header h1 {
         margin: 0;
-        font-size: 30px;
+        font-size: 24px;
+        font-weight: 700;
       }
 
-      .welcome p {
-        padding: 0 50px 0 50px;
-        margin-bottom: 30px;
-        color: white;
-        font-size: 16px;
+      .body {
+        padding: 32px 30px 8px;
+      }
+
+      .body p {
+        margin: 0 0 24px;
+        color: #5c5a52;
+        font-size: 15px;
+        line-height: 1.6;
         text-align: center;
-        transition: all ease-in-out 0.3s;
       }
 
-      .welcome:hover p {
-        color: #303030;
+      .cta-wrapper {
+        text-align: center;
+        margin-bottom: 8px;
       }
 
       .activate-button {
-        position: relative;
-        background-color: #f5f5f5;
+        display: inline-block;
+        background-color: #d4af37;
+        color: #163a2a !important;
         font-family: inherit;
-        border-radius: 15px;
-        padding: 10px 20px;
-        color: #303030;
-        font-weight: 600;
-        font-size: 16px;
-        box-shadow: 0px 0px 20px 5px rgba(0, 0, 0, 0.25);
-
-        border: none;
-
-        transition: all ease-in-out 0.3s;
-        pointer-events: all;
-        overflow: hidden;
+        font-weight: 700;
+        font-size: 15px;
         text-decoration: none;
+        padding: 14px 32px;
+        border-radius: 999px;
+        box-shadow: 0px 8px 20px rgba(212, 175, 55, 0.35);
       }
 
-      .activate-button::before {
-        content: "ACTIVATE MY ACCOUNT";
-        position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        z-index: 1;
-        inset: 0;
-        background: linear-gradient(90deg, #9747ff 0%, #ffa7f6 100%);
-        opacity: 0;
-        transition: all ease-in-out 0.3s;
+      .fallback-link {
+        margin-top: 18px;
+        font-size: 12px;
+        color: #a8a397;
+        text-align: center;
+        word-break: break-all;
       }
-      .activate-button:hover::before {
-        opacity: 1;
+
+      .fallback-link a {
+        color: #1f5f44;
+      }
+
+      .divider {
+        height: 1px;
+        background-color: #ece9e1;
+        margin: 28px 30px;
       }
 
       h2 {
-        font-size: 18px;
-        font-weight: 600;
-        color: #9747ff;
-      }
-
-      p {
-        color: #676767;
         font-size: 14px;
-        text-align: left;
-      }
-      .question {
-        font-weight: 600;
-        color: #424242;
-      }
-      .docs {
-        padding: 30px;
-        padding-bottom: 0;
+        font-weight: 700;
+        color: #1f5f44;
+        margin: 0 0 10px;
       }
 
       .not-you {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 30px;
-        background-color: #ffeeee;
+        padding: 0 30px 24px;
+        text-align: center;
       }
 
-      .not-you .question {
-        color: #c0392b;
+      .not-you p {
+        margin: 0 0 14px;
+        color: #8a857a;
+        font-size: 13px;
+        line-height: 1.5;
+        text-align: center;
       }
 
       .cancel-link {
-        margin-top: 10px;
         color: #c0392b;
         font-weight: 600;
+        font-size: 13px;
         text-decoration: underline;
       }
 
-      .links {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 100%;
-      }
-      .links-section {
-        margin-top: 15px;
-        display: flex;
-        align-items: center;
-        justify-content: space-evenly;
-        width: 100%;
+      .debug-note {
+        margin: 0 30px 28px;
+        padding: 12px 14px;
+        border: 1px dashed #c9c4b6;
+        border-radius: 10px;
+        text-align: center;
       }
 
-      .link {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+      .debug-note p {
+        margin: 0 0 8px;
+        color: #a8a397;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+      }
+
+      .debug-link {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #5c5a52;
+        text-decoration: none;
+        border-bottom: 1px dashed #a8a397;
+      }
+
+      .footer {
+        padding: 10px 30px 30px;
+        text-align: center;
+        font-size: 12px;
+        color: #b4af9f;
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <section class="logo">user-template</section>
-      <section class="welcome">
-        <h1>Welcome to the table!</h1>
-        <p>You're almost ready to play. Activate your account below to shuffle up and start your first game of user-template.</p>
-        <a href="http://localhost:4000/auth/register/${activationToken}" class="activate-button">ACTIVATE MY ACCOUNT</a>
-      </section>
-      <section class="docs">
-        <h2>Learn the ropes</h2>
-        <p>
-          <span class="question">Not sure how a round of user-template works?</span><br />
-          Chances are there is an article about it. Visit our documentation to get all the help you will need.
-        </p>
-        <p><span class="question">Still stuck?</span> <br />That's why we are here! Contact our support and we'll be happy to help you.</p>
-        <p></p>
-      </section>
-      <section class="not-you">
-        <h2>Wasn't you?</h2>
-        <p>
-          <span class="question">Didn't create this account?</span><br />
-          If you didn't sign up for user-template, someone may have used your email by mistake. Cancel this registration and nothing will be created.
-        </p>
-        <a href="http://localhost:4000/auth/cancel/${activationToken}" class="cancel-link">Cancel this registration</a>
-      </section>
-      <section class="links">
-        <h2>Relevant links</h2>
-        <div class="links-section">
-          <div class="link">
-            <img src="" alt="" height="50" width="50" />
-            <p>Documentation</p>
-          </div>
-          <div class="link">
-            <img src="" alt="" height="50" width="50" />
-            <p>Webpage</p>
-          </div>
-          <div class="link">
-            <img src="" alt="" height="50" width="50" />
-            <p>Help center</p>
-          </div>
-          <div class="link">
-            <img src="" alt="" height="50" width="50" />
-            <p>About us</p>
-          </div>
+    <div class="page">
+      <div class="card">
+        <div class="header">
+          <div class="suits">&spades; &hearts; &diams; &clubs;</div>
+          <div class="logo">user-template</div>
+          <h1>Welcome to the table!</h1>
         </div>
-      </section>
+        <div class="body">
+          <p>You're almost ready to play. Activate your account to shuffle up and start your first game.</p>
+          <div class="cta-wrapper">
+            <a href="${process.env.FRONTEND_URL}/auth/register/${activationToken}" class="activate-button">Activate my account</a>
+          </div>
+          <p class="fallback-link">
+            Button not working? Paste this link into your browser:<br />
+            <a href="${process.env.FRONTEND_URL}/auth/register/${activationToken}">${process.env.FRONTEND_URL}/auth/register/${activationToken}</a>
+          </p>
+        </div>
+        <div class="debug-note">
+          <p>Debug - no frontend yet</p>
+          <a href="${process.env.BACKEND_URL}/auth/activate/${activationToken}" class="debug-link">Hit the API directly</a>
+        </div>
+        <div class="divider"></div>
+        <div class="not-you">
+          <h2>Wasn't you?</h2>
+          <p>If you didn't create this account, someone may have used your email by mistake. Cancel the registration below and nothing will be kept.</p>
+          <a href="${process.env.FRONTEND_URL}/auth/cancel/${activationToken}" class="cancel-link">Cancel this registration</a>
+        </div>
+        <div class="debug-note">
+          <p>Debug - no frontend yet</p>
+          <a href="${process.env.BACKEND_URL}/auth/cancelRegistration/${activationToken}" class="debug-link">Hit the API directly</a>
+        </div>
+        <div class="footer">This link expires shortly, so activate your account soon.</div>
+      </div>
     </div>
   </body>
 

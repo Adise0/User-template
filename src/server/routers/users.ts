@@ -4,6 +4,7 @@ import tokenValidator from "../middlewares/auth/tokenValidator";
 import getMyUser from "../controllers/users/getMyUser";
 import getUser from "../controllers/users/getUser";
 import getUserDataValidator from "../middlewares/requestPayloadValidators/getUserDataValidator";
+import method, { Methods } from "../middlewares/method";
 
 // Router creation
 const usersRouter = express.Router();
@@ -15,7 +16,13 @@ const routerEndpoints = endpoints.users;
 
 // This router is completley protected
 usersRouter.use(tokenValidator);
-usersRouter.get(routerEndpoints.myUser, getMyUser);
-usersRouter.get(routerEndpoints.getUser, getUserDataValidator, getUser);
+
+usersRouter.all(routerEndpoints.myUser, method(Methods.GET), getMyUser);
+usersRouter.all(
+  routerEndpoints.getUser,
+  method(Methods.GET),
+  getUserDataValidator,
+  getUser
+);
 
 export default usersRouter;

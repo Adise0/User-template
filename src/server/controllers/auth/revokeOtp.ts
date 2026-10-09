@@ -36,7 +36,7 @@ const revokeOtp = async (req: Request, res: Response, next: NextFunction) => {
     await foundUser.save();
 
     res.status(200).json({
-      message: "OTP revoked",
+      message: "OTP revoked. You can close this window now.",
     });
   } catch (error) {
     next(error);
