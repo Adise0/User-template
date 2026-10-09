@@ -20,6 +20,10 @@ import emailOrUsernameDataValidator from "../middlewares/requestPayloadValidator
 import requestOtp from "../controllers/auth/requestOtp";
 import revokeOtp from "../controllers/auth/revokeOtp";
 import method, { Methods } from "../middlewares/method";
+import requestPasswordReset from "../controllers/auth/requestPasswordReset";
+import resetPassword from "../controllers/auth/resetPassword";
+import cancelPasswordReset from "../controllers/auth/cancelPasswordReset";
+import resetPasswordDataValidator from "../middlewares/requestPayloadValidators/resetPasswordDataValidator";
 
 // Router creation
 const authRouter = express.Router();
@@ -134,6 +138,40 @@ authRouter.all(
   signedTokenDataValidator,
   signedIdTokenValidator,
   revokeOtp
+);
+
+authRouter.all(
+  routerEndpoints.requestPasswordReset,
+  method(Methods.POST),
+  emailOrUsernameDataValidator,
+  requestPasswordReset
+);
+
+authRouter.all(
+  routerEndpoints.resetPassword,
+  method(Methods.POST),
+  resetPasswordDataValidator,
+  signedIdTokenValidator,
+  resetPassword
+);
+
+authRouter.all(
+  routerEndpoints.cancelPasswordReset,
+  method(Methods.POST),
+  signedTokenDataValidator,
+  signedIdTokenValidator,
+  cancelPasswordReset
+);
+
+// DEBUG: see note above - plain GET variant for the email link until a frontend exists.
+// (No GET variant for resetPassword itself, since it needs the new password in the body.)
+authRouter.all(
+  `${routerEndpoints.cancelPasswordReset}/:token`,
+  method(Methods.GET),
+  tokenParamToBody,
+  signedTokenDataValidator,
+  signedIdTokenValidator,
+  cancelPasswordReset
 );
 
 export default authRouter;

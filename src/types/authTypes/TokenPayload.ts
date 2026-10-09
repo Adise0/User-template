@@ -1,6 +1,7 @@
 interface TokenPayload {
   tokenRefreshTime: number;
   id: string;
+  tokenVersion: number;
 }
 
 // Generic shape for any signed, single-purpose link token (activation, cancel-registration, OTP-revoke, ...).

@@ -23,6 +23,8 @@ interface DatabaseUserData extends Document {
   resetPasswordOnLogin: boolean;
   verificationToken?: string;
   otpRevokeToken?: string;
+  resetPasswordToken?: string;
+  tokenVersion: number;
 }
 
 export default DatabaseUserData;

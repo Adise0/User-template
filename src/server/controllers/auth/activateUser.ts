@@ -41,8 +41,9 @@ const activateUser = async (
     foundUser.verificationToken = undefined;
     await foundUser.save();
 
-    // Keep the userId in res.locals so the chained sendToken middleware can log the user in.
+    // Keep the userId and tokenVersion in res.locals so the chained sendToken middleware can log the user in.
     res.locals.userId = foundUser.id;
+    res.locals.tokenVersion = foundUser.tokenVersion;
 
     next();
   } catch (error) {

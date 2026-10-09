@@ -97,8 +97,9 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
       return;
     }
 
-    // If every check has passed write the user id in the res.locals object and go next.
+    // If every check has passed write the user id and token version in the res.locals object and go next.
     res.locals.userId = foundUser.id;
+    res.locals.tokenVersion = foundUser.tokenVersion;
 
     next();
   } catch (error) {

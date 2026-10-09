@@ -103,6 +103,30 @@ export const getPendingRegistrationCooldownError = (
     },
   });
 
+export const getPasswordResetEmailFailedError = (): ControledError =>
+  new ControledError({
+    name: "PASSWORDRESETEMAILFAILED",
+    message: "Failed to send the password reset email",
+    statusCode: 500,
+    messageToSend:
+      "We couldn't send your password reset email. Please try again.",
+    severety: ErrorSeverety.high,
+  });
+
+export const getPasswordResetCooldownError = (
+  secondsRemaining: number
+): ControledError =>
+  new ControledError({
+    name: "PASSWORDRESETCOOLDOWN",
+    message: "Password reset requested too soon after a previous one",
+    statusCode: 429,
+    messageToSend: `A password reset email was already sent. Check your inbox, or try again in ${secondsRemaining}s.`,
+    severety: ErrorSeverety.low,
+    extraData: {
+      secondsRemaining,
+    },
+  });
+
 export interface DuplicatedKeys {
   email: boolean;
   username: boolean;

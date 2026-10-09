@@ -22,3 +22,10 @@ export const registrationRetryCooldownInSeconds = 60;
 
 // OTP revoke link ("wasn't you?") expiration
 export const otpRevokeExpirationInHours = 1;
+
+// Password reset link expiration (the "wasn't you?" cancel link shares the same token).
+export const passwordResetExpirationInMinutes = 30;
+
+// Minimum time between two password reset emails for the same account, so the endpoint can't
+// be used to flood someone's inbox.
+export const passwordResetRetryCooldownInSeconds = 60;

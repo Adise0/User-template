@@ -7,11 +7,12 @@ import {
 } from "../../../data/serverConfig/server-config";
 
 const sendToken = (req: Request, res: Response, next: NextFunction) => {
-  const { userId } = res.locals; // Grab the userId from the res.locals object
+  const { userId, tokenVersion } = res.locals; // Grab the userId and tokenVersion from the res.locals object
 
   // Create the new token payload
   const tokenData: TokenPayload = {
     id: userId,
+    tokenVersion,
     tokenRefreshTime: userSessionRefreshInHours,
   };
 

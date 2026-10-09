@@ -13,6 +13,9 @@ export const authEndpoints = <const>{
   resendActivation: "/resendActivation",
   requestOtp: "/requestOtp",
   revokeOtp: "/revokeOtp",
+  requestPasswordReset: "/requestPasswordReset",
+  resetPassword: "/resetPassword",
+  cancelPasswordReset: "/cancelPasswordReset",
 };
 
 export const userEndpoints = <const>{

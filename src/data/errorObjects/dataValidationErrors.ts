@@ -65,6 +65,20 @@ export const getInvalidTokenBodyError = (messages: string[]): ControledError =>
     },
   });
 
+export const getInvalidResetPasswordDataError = (
+  messages: string[]
+): ControledError =>
+  new ControledError({
+    name: "INVALIDRESETPASSWORDDATA",
+    message: "Invalid reset password payload",
+    statusCode: 400,
+    messageToSend: `Invalid data: ${messages.join(", ")}`,
+    severety: ErrorSeverety.low,
+    extraData: {
+      errors: messages.join(", "),
+    },
+  });
+
 export const getInvalidEmailOrUsernameDataError = (
   messages: string[]
 ): ControledError =>

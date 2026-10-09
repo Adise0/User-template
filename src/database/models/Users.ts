@@ -47,6 +47,14 @@ const UserSchema = new Schema(
 
     otpRevokeToken: String,
 
+    resetPasswordToken: String,
+
+    // Stamped into every session token; bumping it invalidates all previously issued sessions.
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
+
     resetPasswordOnLogin: {
       type: Boolean,
       default: true,
@@ -60,6 +68,7 @@ const UserSchema = new Schema(
         // ret.id = ret._id;
         delete ret._id;
         delete ret.credentials;
+        delete ret.tokenVersion;
       },
     },
   }
