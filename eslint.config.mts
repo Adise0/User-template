@@ -22,6 +22,31 @@ export default defineConfig([
   tseslint.configs.recommended,
   eslintConfigPrettier,
   {
-    ignores: ["build/**", "eslint.config.mts"],
+    ignores: ["build/**", "coverage/**", "eslint.config.mts", "jest.config.js"],
+  },
+  {
+    files: ["tests/**/*.ts"],
+    languageOptions: { globals: globals.jest },
+    rules: {
+      "no-await-in-loop": "off",
+      "n/no-sync": "off",
+      "n/prefer-promises/dns": "off",
+      "no-script-url": "off",
+    },
+  },
+  {
+    rules: {
+      "import/extensions": "off",
+      "no-underscore-dangle": "off",
+      "no-plusplus": "off",
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["error"],
+      "no-shadow": "off",
+      "@typescript-eslint/no-shadow": ["error"],
+      "import/no-extraneous-dependencies": "off",
+      "import/no-unresolved": "off",
+      "lines-between-class-members": "off",
+      "import-x/no-extraneous-dependencies": "off",
+    },
   },
 ]);
