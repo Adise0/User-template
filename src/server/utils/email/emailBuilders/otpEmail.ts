@@ -76,8 +76,8 @@ const getOtpEmail = (otp: string, otpRevokeToken: string) => `
         padding: 16px 28px;
         color: #163a2a;
         font-weight: 700;
-        font-size: 30px;
-        letter-spacing: 8px;
+        font-size: 26px;
+        letter-spacing: 4px;
         margin-bottom: 8px;
       }
 

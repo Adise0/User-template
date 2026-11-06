@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import Users from "../../../database/models/Users";
 import { getInvalidOrExpiredTokenError } from "../../../data/errorObjects/authErrors";
 import { getUserNotFoundForIdError } from "../../../data/errorObjects/userErrors";
+import hashToken from "../../utils/auth/hashToken";
 
 // Handles the "wasn't you?" link on the password reset email: invalidates a reset request that
 // wasn't made by the account owner. Uses the same token/field as resetPassword, just a different
@@ -21,7 +22,7 @@ const cancelPasswordReset = async (req: Request, res: Response, next: NextFuncti
 
     // If there's no pending reset, or the token doesn't match the one on record (stale/already
     // used/already cancelled), treat it the same way: nothing left to cancel.
-    if (!foundUser.resetPasswordToken || foundUser.resetPasswordToken !== token) {
+    if (!foundUser.resetPasswordToken || foundUser.resetPasswordToken !== hashToken(token)) {
       const invalidOrExpiredTokenError = getInvalidOrExpiredTokenError();
       next(invalidOrExpiredTokenError);
       return;

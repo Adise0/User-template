@@ -6,13 +6,25 @@
 export const userSessionDurationInHours = 2; // Duration of the user session
 export const userSessionRefreshInHours = 1; // Time before the front should refresh the token
 
+// Hard limit on a session's total life, counted from the last real login (refreshing doesn't reset
+// it). Past this the user has to log in again. null means unlimited.
+export const userSessionMaxAgeInHours: number | null = null;
+
 // Password settings
-export const charactersOTP = "0123456789";
-export const lengthOTP = 6;
+// No 0/O or 1/I, they're easy to mix up. Uppercase only, the login uppercases what the user types.
+export const charactersOTP = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+export const lengthOTP = 8;
 export const saltRounds = 10;
 
 // User creation
 export const userActivationExpirationInMinutes = 20;
+export const usernameMinLength = 3;
+export const usernameMaxLength = 24;
+export const nameMaxLength = 50; // First and last name.
+
+// How long a never-activated account is kept before MongoDB deletes it. Longer than the activation
+// link on purpose, so the user can still ask for a new link once the first one expires.
+export const pendingAccountRetentionInHours = 24;
 
 // If a registration is retried with the same email/username while the previous attempt is
 // still pending (unactivated), block it unless at least this long has passed since that
@@ -32,11 +44,27 @@ export const passwordResetExpirationInMinutes = 30;
 // be used to flood someone's inbox.
 export const passwordResetRetryCooldownInSeconds = 60;
 
-// Sensitive actions (change password, delete account) need a session whose last real login
+// Email change link expiration, and minimum time between two of those emails for the same account.
+export const emailChangeExpirationInMinutes = 30;
+export const emailChangeRetryCooldownInSeconds = 60;
+
+// Sensitive actions (change password, change email, delete account) need a session whose last real login
 // (credentials or activation link, NOT a token refresh) happened at most this long ago.
 export const freshAuthMaxAgeInMinutes = 5;
+
+// EMAIL DELIVERY
+export const emailMaxAttempts = 3; // Tries per email before giving up.
+export const emailRetryDelayInSeconds = 2; // Grows with each attempt: 2s, then 4s...
+export const emailTimeoutInSeconds = 10; // How long a stuck SMTP server is waited for.
+
+// SERVER
+export const shutdownTimeoutInSeconds = 10; // Time given to running requests on shutdown.
+
+// ADMIN
+export const adminUserListMaxLimit = 100; // Most users a single page of the admin list can return.
 
 // RATE LIMITING (per IP)
 export const authRateLimitWindowInMinutes = 15;
 export const loginRateLimitMax = 10; // Login attempts per window.
 export const emailRateLimitMax = 5; // Requests that send an email (register, OTP, reset...) per window.
+export const keyCheckRateLimitMax = 10; // Email/username availability checks per window.

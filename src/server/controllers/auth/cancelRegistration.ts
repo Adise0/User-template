@@ -5,6 +5,7 @@ import {
   getAccountAlreadyActivatedError,
   getUserNotFoundForIdError,
 } from "../../../data/errorObjects/userErrors";
+import hashToken from "../../utils/auth/hashToken";
 
 // Handles the "wasn't you?" link on the activation email: deletes a pending (not yet
 // activated) account. Uses the same token/field as activateUser, just a different action.
@@ -22,14 +23,14 @@ const cancelRegistration = async (req: Request, res: Response, next: NextFunctio
     }
 
     // An already-active account can't be cancelled through this link - it has nothing to do with a pending registration anymore.
-    if (!foundUser.verificationToken) {
+    if (foundUser.activatedAt) {
       const alreadyActivatedError = getAccountAlreadyActivatedError(userId);
       next(alreadyActivatedError);
       return;
     }
 
     // If the token does not match the one on record it's stale (eg. a newer activation email was sent since).
-    if (foundUser.verificationToken !== token) {
+    if (foundUser.verificationToken !== hashToken(token)) {
       const invalidOrExpiredTokenError = getInvalidOrExpiredTokenError();
       next(invalidOrExpiredTokenError);
       return;

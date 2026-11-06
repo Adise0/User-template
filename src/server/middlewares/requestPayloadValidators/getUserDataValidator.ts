@@ -1,16 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import { getValidationError } from "../../../data/errorObjects/dataValidationErrors";
 import getUserData from "../../../data/joiObjects/getUserData";
+import joiValidationOptions from "../../../data/joiObjects/joiValidationOptions";
 
 const getUserDataValidator = (req: Request, res: Response, next: NextFunction) => {
-  // Options to tell Joi how to validate the payload
-  const joiValidationOptions = {
-    abortEarly: false,
-    allowUnknown: true,
-    stripUnknown: true,
-  };
-
-  // Use the registrationData Joi object to validate the request body. (This object is found in data/JoiObjects)
+  // Use the getUserData Joi object to validate the request params. (This object is found in data/JoiObjects)
   const { error, value } = getUserData.validate(req.params, joiValidationOptions);
 
   // If the validation fails write an error and go next.
@@ -19,8 +13,9 @@ const getUserDataValidator = (req: Request, res: Response, next: NextFunction) =
     return;
   }
 
-  // If the validation is correct we put the validated Id in the res.locals
-  res.locals.userId = value.userId;
+  // If the validation is correct we put the validated Id in the res.locals. Kept apart from
+  // res.locals.userId, which is the logged in user left by the tokenValidator.
+  res.locals.requestedUserId = value.userId;
   next();
 };
 

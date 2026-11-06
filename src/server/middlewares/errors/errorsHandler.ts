@@ -1,74 +1,57 @@
-import chalk from "chalk";
-import debug from "debug";
 import { NextFunction, Request, Response } from "express";
 
 import { buildResponseError } from "../../../data/errorObjects/responseErrors";
-import ControledError from "../../../data/errorObjects/ControledError";
-import { ErrorSeverety } from "../../../types/errorTypes/ServerError";
+import ControlledError from "../../../data/errorObjects/ControlledError";
+import { ErrorSeverity } from "../../../types/errorTypes/ServerError";
 import { ErrorCode } from "../../../types/errorTypes/ErrorCode";
 
-const debugToConsole = debug("user-template:errorHandler"); // Debug section setup
+// Errors thrown by Express itself or its body parser (eg. broken JSON) carry their own 4xx status,
+// some of them as statusCode and some as status (eg. an undecodable URL param).
+type UncontrolledError = Error & { statusCode?: number; status?: number };
 
-// Errors thrown by Express itself or its body parser (eg. broken JSON) carry their own 4xx status.
-type UncontroledError = Error & { statusCode?: number };
+const logLevelBySeverity = {
+  [ErrorSeverity.high]: "error",
+  [ErrorSeverity.medium]: "warn",
+  [ErrorSeverity.low]: "debug",
+} as const;
 
-// Turns anything that wasn't built as a ControledError into one, so every response has the same shape.
-const toControledError = (err: UncontroledError): ControledError => {
-  if (err.statusCode && err.statusCode >= 400 && err.statusCode < 500) {
-    return new ControledError({
+// Turns anything that wasn't built as a ControlledError into one, so every response has the same shape.
+const toControlledError = (err: UncontrolledError): ControlledError => {
+  const statusCode = err.statusCode ?? err.status;
+
+  if (statusCode && statusCode >= 400 && statusCode < 500) {
+    return new ControlledError({
       code: ErrorCode.BAD_REQUEST,
       message: err.message,
-      statusCode: err.statusCode,
+      statusCode,
       messageToSend: "Bad request",
-      severety: ErrorSeverety.low,
+      severity: ErrorSeverity.low,
     });
   }
 
-  return new ControledError({
+  return new ControlledError({
     code: ErrorCode.INTERNAL_ERROR,
     message: err.message,
     statusCode: 500,
     messageToSend: "Internal server error",
-    severety: ErrorSeverety.high,
+    severity: ErrorSeverity.high,
   });
 };
 
 const errorsHandler = (
-  err: ControledError | UncontroledError,
-  _req: Request,
+  err: ControlledError | UncontrolledError,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ) => {
-  const isControled = err instanceof ControledError;
+  const isControlled = err instanceof ControlledError;
+  const error = isControlled ? err : toControlledError(err);
 
-  // If the error is uncontroled show in console -> Recommended to change to an acual logger
-  if (!isControled) {
-    debugToConsole(chalk.redBright(`Unhandled error found!: \n ${err.message}`));
-  }
-
-  const error = isControled ? err : toControledError(err);
-
-  if (process.env.DEBUG_VERBOSE === "true") {
-    debugToConsole(
-      " \n",
-      chalk.redBright(`\n Error: `),
-      chalk.whiteBright(error.code),
-      chalk.redBright(`\n Message: `),
-      chalk.whiteBright(error.message),
-      chalk.redBright(`\n Sent message:`),
-      chalk.whiteBright(error.messageToSend),
-      chalk.redBright(`\n Code:`),
-      chalk.whiteBright(error.statusCode),
-      chalk.redBright(`\n Data: ${error.extraData ? "\n" : ""}`),
-      chalk.whiteBright(
-        error.extraData
-          ? Object.entries(error.extraData)
-              .map((entry) => `  ${entry[0]}: ${entry[1]} \n`)
-              .join("")
-          : "No Data",
-      ),
-    );
-  }
+  // The original error goes in the log, so an unexpected one keeps its stack trace.
+  req.log[logLevelBySeverity[error.severity]](
+    { err, code: error.code, statusCode: error.statusCode, extraData: error.extraData },
+    error.message,
+  );
 
   res.status(error.statusCode).json(buildResponseError(error)); // Send only the public parts of the error.
 };

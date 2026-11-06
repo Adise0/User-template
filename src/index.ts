@@ -1,29 +1,34 @@
 /* eslint-disable import-x/first */
 /* eslint-disable import-x/newline-after-import */
-/* eslint-disable import-x/no-extraneous-dependencies */
 
 import dotenv from "dotenv";
 dotenv.config();
 
-import debug from "debug";
-import chalk from "chalk";
 import startServer from "./server/startServer";
 import app from "./server";
 import connectToDB from "./database";
+import validateEnv from "./data/serverConfig/validateEnv";
+import setupGracefulShutdown from "./server/setupGracefulShutdown";
+import logger from "./server/utils/logger";
 
-const debugInConsole = debug("user-template:root"); // Debug section setup
-
-// Enviroment varialbe grab
+// Environment variable grab
 const port = process.env.PORT || "4000";
 const connectionString = process.env.CONN_STRING;
 
 // Services initialization
 (async () => {
   try {
-    debugInConsole(chalk.white("Starting server..."));
-    await startServer(port, app); // Start the server
-    await connectToDB(connectionString); // start the DB connection
+    validateEnv(); // Stop right here if the configuration is broken
+    logger.info("Starting server...");
+    await connectToDB(connectionString); // Connect first, a server without its DB can't answer anything
+    const server = await startServer(port, app); // Start the server
+    setupGracefulShutdown(server);
   } catch (error) {
-    debugInConsole(`Error: ${error.message}`); // Debug any startup failiures to the console
+    // Straight to the console, so it's shown whatever the log level, and the process goes down
+    // instead of staying up broken.
+    // eslint-disable-next-line no-console
+    console.error(`Startup failed: ${(error as Error).message}`);
+    // eslint-disable-next-line n/no-process-exit
+    process.exit(1);
   }
 })();

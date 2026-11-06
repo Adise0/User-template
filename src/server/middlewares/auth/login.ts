@@ -1,21 +1,25 @@
 import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
+import { randomUUID } from "node:crypto";
 import Users from "../../../database/models/Users";
 import LoginData from "../../../types/authTypes/loginData";
 import {
   getInvalidPasswordError,
   getNotYetActivatedError,
+  getPasswordResetRequiredError,
   getUserDisabledError,
   getUserNotFoundForUsernameOrEmailError,
 } from "../../../data/errorObjects/userErrors";
-import { otpMaxAttempts } from "../../../data/serverConfig/server-config";
+import { otpMaxAttempts, saltRounds } from "../../../data/serverConfig/server-config";
 import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
 import clearOtp from "../../utils/auth/clearOtp";
 
 // Hash of a random string nobody knows. When there's no real hash to compare against (unknown
 // user, no password set), the password is still compared against this one so the response takes
 // as long as a real check - otherwise the timing alone would tell which accounts exist.
-const dummyPasswordHash = "$2b$10$ZUlB8C4Y.KvyMyCD95oHTOxKqN.JuWmQeshYADw0Qt9IrO3jt8vf2";
+// It's generated at startup so it always has the same cost as the real hashes.
+// eslint-disable-next-line n/no-sync
+const dummyPasswordHash = bcrypt.hashSync(randomUUID(), saltRounds);
 
 const login = async (req: Request, res: Response, next: NextFunction) => {
   const loginData: LoginData = req.body; // Grab the login data left in the body by the request validator.
@@ -62,7 +66,7 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
       }
 
       // Check if the OTP is valid.
-      const isPasswordValid = await bcrypt.compare(loginData.password, otpPassword);
+      const isPasswordValid = await bcrypt.compare(loginData.password.toUpperCase(), otpPassword);
 
       // If the password is invalid go next with the invalid password error written previously.
       if (!isPasswordValid) {
@@ -98,9 +102,16 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
     }
 
     // If the login is correct but the user is not yet activated write the error and go next
-    if (foundUser.verificationToken) {
+    if (!foundUser.activatedAt) {
       const notActiveError = getNotYetActivatedError(foundUser.id);
       next(notActiveError);
+      return;
+    }
+
+    // An admin forced a password reset, so the password may be compromised: the only way back in is
+    // the link sent to the account's email, which clears this.
+    if (foundUser.resetPasswordOnLogin) {
+      next(getPasswordResetRequiredError(foundUser.id));
       return;
     }
 

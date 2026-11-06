@@ -1,23 +1,22 @@
-import debug from "debug";
+import { Server } from "node:http";
 import { Application } from "express";
+import logger from "./utils/logger";
 
-const debugInConsole = debug("user-template:server"); // Debug section setup
-
-// This promise resolved when the server correctly starts and rejects if there is an error
-const startServer = (port: string, app: Application): Promise<void> =>
+// This promise resolves with the server when it correctly starts and rejects if there is an error
+const startServer = (port: string, app: Application): Promise<Server> =>
   new Promise((resolve, reject) => {
     const newPort = +port;
     const server = app.listen(newPort, () => {
       const portString: string = newPort === 80 ? "" : `:${newPort}`;
-      debugInConsole(`Server listening on http://localhost${portString}`);
-      resolve(); // Resolve on correct server startup
+      logger.info(`Server listening on http://localhost${portString}`);
+      resolve(server); // Resolve on correct server startup
     });
 
     server.on("error", (error: NodeJS.ErrnoException) => {
-      const messageString = error.code === "EADDRINUSE" ? ` Port ${port} in use` : error.message; // Handle the common EADDRINUSE error wit h a more readable message or leave the default error message
+      const messageString = error.code === "EADDRINUSE" ? ` Port ${port} in use` : error.message; // Handle the common EADDRINUSE error with a more readable message or leave the default error message
 
       const errorMessage = `Couldn't start the server. ${messageString}`;
-      reject(new Error(errorMessage)); // Reject with an error on server startup failiure
+      reject(new Error(errorMessage)); // Reject with an error on server startup failure
     });
   });
 

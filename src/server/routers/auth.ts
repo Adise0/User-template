@@ -2,34 +2,44 @@ import express from "express";
 import login from "../middlewares/auth/login";
 import sendToken from "../controllers/auth/sendToken";
 import tokenValidator from "../middlewares/auth/tokenValidator";
-import loginDataValidator from "../middlewares/requestPayloadValidators/loginDataValidator";
+import {
+  changePasswordDataValidator,
+  emailChangeDataValidator,
+  emailOrUsernameDataValidator,
+  loginDataValidator,
+  registrationDataValidator,
+  resetPasswordDataValidator,
+  signedTokenDataValidator,
+} from "../middlewares/requestPayloadValidators/bodyValidators";
 import { endpoints } from "../../data/serverConfig/endpoints";
-import registrationDataValidator from "../middlewares/requestPayloadValidators/registrationDataValidator";
 import registerUser from "../controllers/auth/registerUser";
 import createUser from "../middlewares/auth/userCreator";
 import duplicateKeyChecker from "../middlewares/auth/duplicateKeyChecker";
 import resolveRegistrationConflict from "../middlewares/auth/resolveRegistrationConflict";
 import keyCheckerDataValidator from "../middlewares/requestPayloadValidators/keyCheckerDataValidator";
-import signedTokenDataValidator from "../middlewares/requestPayloadValidators/signedTokenDataValidator";
 import signedIdTokenValidator from "../middlewares/auth/signedIdTokenValidator";
 import tokenParamToBody from "../middlewares/auth/tokenParamToBody";
 import activateUser from "../controllers/auth/activateUser";
 import cancelRegistration from "../controllers/auth/cancelRegistration";
 import resendActivation from "../controllers/auth/resendActivation";
-import emailOrUsernameDataValidator from "../middlewares/requestPayloadValidators/emailOrUsernameDataValidator";
 import requestOtp from "../controllers/auth/requestOtp";
 import revokeOtp from "../controllers/auth/revokeOtp";
 import method, { Methods } from "../middlewares/method";
 import requestPasswordReset from "../controllers/auth/requestPasswordReset";
 import resetPassword from "../controllers/auth/resetPassword";
 import cancelPasswordReset from "../controllers/auth/cancelPasswordReset";
-import resetPasswordDataValidator from "../middlewares/requestPayloadValidators/resetPasswordDataValidator";
-import changePasswordDataValidator from "../middlewares/requestPayloadValidators/changePasswordDataValidator";
 import freshAuthValidator from "../middlewares/auth/freshAuthValidator";
 import changePassword from "../controllers/auth/changePassword";
 import signOutEverywhere from "../controllers/auth/signOutEverywhere";
+import logout from "../controllers/auth/logout";
+import requestEmailChange from "../controllers/auth/requestEmailChange";
+import confirmEmailChange from "../controllers/auth/confirmEmailChange";
 import deleteAccount from "../controllers/auth/deleteAccount";
-import { emailRateLimiter, loginRateLimiter } from "../middlewares/rateLimiters";
+import {
+  emailRateLimiter,
+  keyCheckRateLimiter,
+  loginRateLimiter,
+} from "../middlewares/rateLimiters";
 import { TokenPurpose } from "../../types/authTypes/TokenPayload";
 
 // Router creation
@@ -70,6 +80,7 @@ authRouter.all(
 authRouter.all(
   routerEndpoints.checkKeys,
   method(Methods.POST),
+  keyCheckRateLimiter,
   keyCheckerDataValidator,
   duplicateKeyChecker,
 );
@@ -194,12 +205,32 @@ authRouter.all(
 );
 
 authRouter.all(
+  routerEndpoints.requestEmailChange,
+  method(Methods.POST),
+  emailRateLimiter,
+  tokenValidator,
+  freshAuthValidator,
+  emailChangeDataValidator,
+  requestEmailChange,
+);
+
+authRouter.all(
+  routerEndpoints.confirmEmailChange,
+  method(Methods.POST),
+  signedTokenDataValidator,
+  signedIdTokenValidator(TokenPurpose.emailChange),
+  confirmEmailChange,
+);
+
+authRouter.all(
   routerEndpoints.deleteAccount,
   method(Methods.DELETE),
   tokenValidator,
   freshAuthValidator,
   deleteAccount,
 );
+
+authRouter.all(routerEndpoints.logout, method(Methods.POST), tokenValidator, logout);
 
 authRouter.all(
   routerEndpoints.signOutEverywhere,

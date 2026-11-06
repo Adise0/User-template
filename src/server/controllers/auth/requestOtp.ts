@@ -10,7 +10,9 @@ import {
   otpExpirationInMinutes,
   otpRetryCooldownInSeconds,
 } from "../../../data/serverConfig/server-config";
-import getTokenAgeInSeconds from "../../utils/auth/getTokenAgeInSeconds";
+import claimEmailSlot from "../../utils/auth/claimEmailSlot";
+import getTokenSecret from "../../utils/auth/getTokenSecret";
+import hashToken from "../../utils/auth/hashToken";
 import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
 import {
   logEmailRequestError,
@@ -28,16 +30,18 @@ const requestOtp = async (req: Request, res: Response) => {
 
     // Silently do nothing if no user matches, it's disabled, or it's still pending activation
     // (login would refuse it anyway).
-    if (!foundUser || foundUser.isDisabled || foundUser.verificationToken) {
+    if (!foundUser || foundUser.isDisabled || !foundUser.activatedAt) {
       return;
     }
 
-    // Throttle repeated OTP requests for the same account. The revoke token is issued together
-    // with the OTP, so its age is the age of the pending OTP.
-    if (
-      foundUser.otpRevokeToken &&
-      getTokenAgeInSeconds(foundUser.otpRevokeToken) < otpRetryCooldownInSeconds
-    ) {
+    // Throttle repeated OTP requests for the same account.
+    const isSlotClaimed = await claimEmailSlot(
+      foundUser._id,
+      "credentials.otpLastSentAt",
+      otpRetryCooldownInSeconds,
+    );
+
+    if (!isSlotClaimed) {
       return;
     }
 
@@ -52,7 +56,7 @@ const requestOtp = async (req: Request, res: Response) => {
 
     // Create the revoke token with the created payload. It expires together with the OTP, after
     // that there's nothing left to revoke.
-    const otpRevokeToken = jwt.sign(revokeTokenData, process.env.TOKEN_SECRET, {
+    const otpRevokeToken = jwt.sign(revokeTokenData, getTokenSecret(), {
       expiresIn: `${otpExpirationInMinutes}m`,
     });
 
@@ -66,14 +70,13 @@ const requestOtp = async (req: Request, res: Response) => {
 
     // Send the email with the plaintext OTP BEFORE storing it: if it fails (it throws), a
     // previously sent OTP stays usable instead of being replaced by one nobody received.
-    // TODO: ADD SOME SORT OF BACKLOG FOR EMAIL RE-TRY
     await sendEmail(emailData);
 
-    // Store the hashed OTP, its expiration, a fresh attempt counter and the raw revoke token, and save the user back to the DB.
+    // Store the hashed OTP, its expiration, a fresh attempt counter and the hashed revoke token, and save the user back to the DB.
     foundUser.credentials.otpPassword = hashedOtp;
     foundUser.credentials.otpExpiresAt = new Date(Date.now() + otpExpirationInMinutes * 60 * 1000);
     foundUser.credentials.otpAttempts = 0;
-    foundUser.otpRevokeToken = otpRevokeToken;
+    foundUser.otpRevokeToken = hashToken(otpRevokeToken);
     await foundUser.save();
   } catch (error) {
     logEmailRequestError("OTP request", error);

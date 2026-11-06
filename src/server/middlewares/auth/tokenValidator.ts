@@ -4,6 +4,8 @@ import Users from "../../../database/models/Users";
 import { getInvalidTokenError, getNoAuthHeaderError } from "../../../data/errorObjects/authErrors";
 import { getUserDisabledError } from "../../../data/errorObjects/userErrors";
 import TokenPayload, { TokenPurpose } from "../../../types/authTypes/TokenPayload";
+import { userSessionMaxAgeInHours } from "../../../data/serverConfig/server-config";
+import getTokenSecret from "../../utils/auth/getTokenSecret";
 
 const tokenValidator = async (req: Request, res: Response, next: NextFunction) => {
   const headerAuth = req.header("Authorization"); // Grab the request Authorization header
@@ -21,7 +23,7 @@ const tokenValidator = async (req: Request, res: Response, next: NextFunction) =
   let realTokenPayload: TokenPayload;
 
   try {
-    const tokenPayload = jwt.verify(token, process.env.TOKEN_SECRET); // Verify the token
+    const tokenPayload = jwt.verify(token, getTokenSecret()); // Verify the token
     realTokenPayload = tokenPayload as TokenPayload; // Extract the token payload
   } catch {
     // If the validation does not pass write the error and go next.
@@ -38,13 +40,38 @@ const tokenValidator = async (req: Request, res: Response, next: NextFunction) =
     return;
   }
 
+  // If there's an overall session limit, refreshing can't keep a session alive past it.
+  if (userSessionMaxAgeInHours !== null) {
+    const secondsSinceAuth = Math.floor(Date.now() / 1000) - realTokenPayload.authTime;
+
+    if (!realTokenPayload.authTime || secondsSinceAuth > userSessionMaxAgeInHours * 60 * 60) {
+      const invalidTokenError = getInvalidTokenError();
+      next(invalidTokenError);
+      return;
+    }
+  }
+
   try {
     // A valid signature isn't enough on its own: the session must also still be current for the user.
-    const foundUser = await Users.findById(realTokenPayload.id).select("tokenVersion isDisabled");
+    const foundUser = await Users.findById(realTokenPayload.id).select(
+      "tokenVersion isDisabled role revokedSessions",
+    );
 
     // If the user no longer exists, or the token was issued before the user's sessions were
     // revoked (eg. a password reset), the token is no longer valid.
     if (!foundUser || foundUser.tokenVersion !== realTokenPayload.tokenVersion) {
+      const invalidTokenError = getInvalidTokenError();
+      next(invalidTokenError);
+      return;
+    }
+
+    // If this session was signed out on its own (or it's from before sessions had an id), the
+    // token is no longer valid either.
+    const isSessionRevoked = foundUser.revokedSessions.some(
+      ({ sessionId }) => sessionId === realTokenPayload.sessionId,
+    );
+
+    if (!realTokenPayload.sessionId || isSessionRevoked) {
       const invalidTokenError = getInvalidTokenError();
       next(invalidTokenError);
       return;
@@ -57,11 +84,13 @@ const tokenValidator = async (req: Request, res: Response, next: NextFunction) =
       return;
     }
 
-    // Add the userId, tokenVersion and authTime to the res.locals object (sendToken carries them
-    // over on refresh, freshAuthValidator reads the authTime).
+    // Add what comes with the session to the res.locals object (sendToken carries it over on
+    // refresh, freshAuthValidator reads the authTime, roleValidator the role).
     res.locals.userId = foundUser.id;
     res.locals.tokenVersion = foundUser.tokenVersion;
     res.locals.authTime = realTokenPayload.authTime;
+    res.locals.sessionId = realTokenPayload.sessionId;
+    res.locals.role = foundUser.role;
 
     next(); // go next.
   } catch (error) {

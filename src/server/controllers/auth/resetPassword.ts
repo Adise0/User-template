@@ -7,6 +7,8 @@ import {
 } from "../../../data/errorObjects/userErrors";
 import hashPassword from "../../utils/auth/hashPassword";
 import clearOtp from "../../utils/auth/clearOtp";
+import sendSecurityNotice from "../../utils/email/sendSecurityNotice";
+import hashToken from "../../utils/auth/hashToken";
 
 const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
   const { userId, token } = res.locals; // Grab the userId and raw token left by the signedIdTokenValidator.
@@ -31,7 +33,7 @@ const resetPassword = async (req: Request, res: Response, next: NextFunction) =>
 
     // If there's no pending reset, or the token doesn't match the one on record (stale/already
     // used/cancelled), treat it the same way: the link is no longer valid.
-    if (!foundUser.resetPasswordToken || foundUser.resetPasswordToken !== token) {
+    if (!foundUser.resetPasswordToken || foundUser.resetPasswordToken !== hashToken(token)) {
       const invalidOrExpiredTokenError = getInvalidOrExpiredTokenError();
       next(invalidOrExpiredTokenError);
       return;
@@ -49,6 +51,12 @@ const resetPassword = async (req: Request, res: Response, next: NextFunction) =>
     foundUser.tokenVersion += 1;
 
     await foundUser.save();
+
+    sendSecurityNotice(
+      foundUser.credentials.email,
+      "Your password was changed",
+      "The password on your account was just reset, and every session was signed out. If this wasn't you, reset your password now.",
+    );
 
     res.status(200).json({
       message: "Password reset successfully",

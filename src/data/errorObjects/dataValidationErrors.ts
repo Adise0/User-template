@@ -1,9 +1,9 @@
 /* eslint-disable import-x/prefer-default-export */
 
 import { ValidationError } from "joi";
-import { ErrorSeverety } from "../../types/errorTypes/ServerError";
+import { ErrorSeverity } from "../../types/errorTypes/ServerError";
 import { ErrorCode, FieldErrorCode, FieldErrors } from "../../types/errorTypes/ErrorCode";
-import ControledError from "./ControledError";
+import ControlledError from "./ControlledError";
 
 // Translates Joi's own error types (eg. "string.min") into our stable field codes, so the
 // frontend never depends on which validation library the backend happens to use.
@@ -14,7 +14,10 @@ const joiTypeToFieldErrorCode: Record<string, FieldErrorCode> = {
   "number.base": FieldErrorCode.INVALID_TYPE,
   "boolean.base": FieldErrorCode.INVALID_TYPE,
   "string.email": FieldErrorCode.INVALID_FORMAT,
-  "string.alphanum": FieldErrorCode.INVALID_FORMAT,
+  "string.hex": FieldErrorCode.INVALID_FORMAT,
+  "string.uri": FieldErrorCode.INVALID_FORMAT,
+  "string.uriCustomScheme": FieldErrorCode.INVALID_FORMAT,
+  "string.pattern.base": FieldErrorCode.INVALID_FORMAT,
   "string.length": FieldErrorCode.INVALID_FORMAT,
   "string.min": FieldErrorCode.TOO_SHORT,
   "string.max": FieldErrorCode.TOO_LONG,
@@ -25,7 +28,7 @@ const joiTypeToFieldErrorCode: Record<string, FieldErrorCode> = {
 export const getValidationError = (
   validationError: ValidationError,
   payloadName: string,
-): ControledError => {
+): ControlledError => {
   const fields: FieldErrors = {};
 
   validationError.details.forEach((detail) => {
@@ -40,12 +43,12 @@ export const getValidationError = (
 
   const messages = validationError.details.map((detail) => detail.message);
 
-  return new ControledError({
+  return new ControlledError({
     code: ErrorCode.VALIDATION_FAILED,
     message: `Invalid ${payloadName} payload`,
     statusCode: 400,
     messageToSend: `Invalid data: ${messages.join(", ")}`,
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     fields,
   });
 };

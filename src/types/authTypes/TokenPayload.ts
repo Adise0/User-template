@@ -5,12 +5,15 @@ export enum TokenPurpose {
   activation = "ACTIVATION",
   otpRevoke = "OTPREVOKE",
   passwordReset = "PASSWORDRESET",
+  emailChange = "EMAILCHANGE",
 }
 
 interface TokenPayload {
   purpose: TokenPurpose.session;
   id: string;
   tokenVersion: number;
+  // Identifies this login. Carried over on refresh, so a single session can be signed out.
+  sessionId: string;
   // Unix time (seconds) of the last real login (credentials or activation link). Carried over
   // unchanged on refresh, so it tells how "fresh" the session is.
   authTime: number;

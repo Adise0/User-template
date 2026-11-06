@@ -1,14 +1,18 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import Users from "../../../database/models/Users";
 import { SignedIdTokenPayload, TokenPurpose } from "../../../types/authTypes/TokenPayload";
 import sendEmail from "../../utils/email";
 import EmailData from "../../utils/email/types";
 import getUserActivationEmail from "../../utils/email/emailBuilders/userActivationEmail";
 import {
+  pendingAccountRetentionInHours,
   registrationRetryCooldownInSeconds,
   userActivationExpirationInMinutes,
 } from "../../../data/serverConfig/server-config";
-import getTokenAgeInSeconds from "../../utils/auth/getTokenAgeInSeconds";
+import claimEmailSlot from "../../utils/auth/claimEmailSlot";
+import getTokenSecret from "../../utils/auth/getTokenSecret";
+import hashToken from "../../utils/auth/hashToken";
 import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
 import {
   logEmailRequestError,
@@ -24,14 +28,20 @@ const resendActivation = async (req: Request, res: Response) => {
   try {
     const foundUser = await findUserByEmailOrUsername(email); // Get the user from the database by email or username.
 
-    // Silently do nothing if no user matches, it's disabled, or there's no pending
-    // verificationToken (the account is already active - nothing to resend).
-    if (!foundUser || foundUser.isDisabled || !foundUser.verificationToken) {
+    // Silently do nothing if no user matches, it's disabled, or the account is already active
+    // (nothing to resend).
+    if (!foundUser || foundUser.isDisabled || foundUser.activatedAt) {
       return;
     }
 
     // Throttle repeated resends of the same pending signup.
-    if (getTokenAgeInSeconds(foundUser.verificationToken) < registrationRetryCooldownInSeconds) {
+    const isSlotClaimed = await claimEmailSlot(
+      foundUser._id,
+      "activationLastSentAt",
+      registrationRetryCooldownInSeconds,
+    );
+
+    if (!isSlotClaimed) {
       return;
     }
 
@@ -42,7 +52,7 @@ const resendActivation = async (req: Request, res: Response) => {
     };
 
     // Create the token with the created payload.
-    const verificationToken = jwt.sign(tokenData, process.env.TOKEN_SECRET, {
+    const verificationToken = jwt.sign(tokenData, getTokenSecret(), {
       expiresIn: `${userActivationExpirationInMinutes}m`,
     });
 
@@ -51,7 +61,7 @@ const resendActivation = async (req: Request, res: Response) => {
       html: getUserActivationEmail(verificationToken),
       internalEmailName: "User Activation email",
       subject: `Hey ${foundUser.information.username}! Activate your account!`,
-      to: foundUser.information.email,
+      to: foundUser.credentials.email,
     };
 
     // Send the email BEFORE overwriting the stored token: if it fails (it throws), the old (still
@@ -59,9 +69,18 @@ const resendActivation = async (req: Request, res: Response) => {
     await sendEmail(emailData);
 
     // The new email went out - now it's safe to replace the old token (which also invalidates
-    // any previously issued activation/cancel links for this account).
-    foundUser.verificationToken = verificationToken;
-    await foundUser.save();
+    // any previously issued activation/cancel links for this account). Only matching a pending
+    // account means that if the account got activated while the email was going out, it's left alone:
+    // saving would turn it back into a pending account, which MongoDB would then delete.
+    await Users.updateOne(
+      { _id: foundUser._id, activatedAt: null },
+      {
+        $set: {
+          verificationToken: hashToken(verificationToken),
+          pendingExpiresAt: new Date(Date.now() + pendingAccountRetentionInHours * 60 * 60 * 1000),
+        },
+      },
+    );
   } catch (error) {
     logEmailRequestError("activation resend", error);
   }

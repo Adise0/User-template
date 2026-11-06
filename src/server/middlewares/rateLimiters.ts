@@ -4,6 +4,7 @@ import { getTooManyRequestsError } from "../../data/errorObjects/authErrors";
 import {
   authRateLimitWindowInMinutes,
   emailRateLimitMax,
+  keyCheckRateLimitMax,
   loginRateLimitMax,
 } from "../../data/serverConfig/server-config";
 
@@ -32,3 +33,6 @@ export const loginRateLimiter = buildRateLimiter(loginRateLimitMax);
 
 // Guards every endpoint that sends an email, so they can't be used to flood an inbox.
 export const emailRateLimiter = buildRateLimiter(emailRateLimitMax);
+
+// Guards checkKeys, which would otherwise allow testing which emails and usernames are registered.
+export const keyCheckRateLimiter = buildRateLimiter(keyCheckRateLimitMax);

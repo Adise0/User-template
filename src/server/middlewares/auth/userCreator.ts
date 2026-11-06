@@ -9,6 +9,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
 
   try {
     const hashedPassword = await hashPassword(password); // Hash the new user's password.
+    const normalizedUsername = username.toLowerCase(); // Usernames are unique regardless of casing.
 
     // Create the new user object.
     const newUser: CreatedUserData = {
@@ -23,7 +24,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
       resetPasswordOnLogin: false,
 
       credentials: {
-        username,
+        username: normalizedUsername,
         email,
         password: hashedPassword,
       },
@@ -32,11 +33,10 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
     // Replace the req.body with the new user object and go next.
     req.body = newUser;
 
-    // Add the posible duplicate keys to the res.locals
+    // Add the possible duplicate keys to the res.locals
     res.locals = {
-      email: newUser.information.email,
-      username: newUser.information.username,
-      goNext: true,
+      email: newUser.credentials.email,
+      username: newUser.credentials.username,
     };
     next();
   } catch (error) {

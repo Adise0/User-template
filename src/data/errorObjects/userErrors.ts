@@ -1,97 +1,118 @@
-import { ErrorSeverety } from "../../types/errorTypes/ServerError";
+import { ErrorSeverity } from "../../types/errorTypes/ServerError";
 import { ErrorCode, FieldErrorCode, FieldErrors } from "../../types/errorTypes/ErrorCode";
-import ControledError from "./ControledError";
+import ControlledError from "./ControlledError";
 
 // Shares its code and message with getInvalidPasswordError on purpose: "no such account" and
 // "wrong password" must look exactly the same from the outside.
-export const getUserNotFoundForUsernameOrEmailError = (email: string): ControledError =>
-  new ControledError({
+export const getUserNotFoundForUsernameOrEmailError = (email: string): ControlledError =>
+  new ControlledError({
     code: ErrorCode.INVALID_CREDENTIALS,
     message: "User not found",
     statusCode: 401,
     messageToSend: "Incorrect email or password",
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     extraData: {
       email,
     },
   });
 
-export const getUserNotFoundForIdError = (userId: string): ControledError =>
-  new ControledError({
+export const getUserNotFoundForIdError = (userId: string): ControlledError =>
+  new ControlledError({
     code: ErrorCode.USER_NOT_FOUND,
     message: "User not found for Id",
     statusCode: 404,
     messageToSend: "User not found",
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     extraData: {
       userId,
     },
   });
 
-export const getUserDisabledError = (userId: string): ControledError =>
-  new ControledError({
+export const getUserDisabledError = (userId: string): ControlledError =>
+  new ControlledError({
     code: ErrorCode.USER_DISABLED,
     message: "User disabled",
     statusCode: 403,
     messageToSend: "This user is currently disabled",
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     extraData: {
       userId,
     },
   });
 
-export const getNotYetActivatedError = (userId: string): ControledError =>
-  new ControledError({
+export const getNotYetActivatedError = (userId: string): ControlledError =>
+  new ControlledError({
     code: ErrorCode.ACCOUNT_NOT_ACTIVATED,
     message: "User not active",
     statusCode: 403,
     messageToSend: "This user is not activated yet!",
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     extraData: {
       userId,
     },
   });
 
-export const getInvalidPasswordError = (userId: string): ControledError =>
-  new ControledError({
+export const getPasswordResetRequiredError = (userId: string): ControlledError =>
+  new ControlledError({
+    code: ErrorCode.PASSWORD_RESET_REQUIRED,
+    message: "Login attempted on an account with a forced password reset",
+    statusCode: 403,
+    messageToSend: "You need to reset your password. Check your email for the link.",
+    severity: ErrorSeverity.low,
+    extraData: {
+      userId,
+    },
+  });
+
+export const getInvalidPasswordError = (userId: string): ControlledError =>
+  new ControlledError({
     code: ErrorCode.INVALID_CREDENTIALS,
     message: "Password is not valid",
     statusCode: 401,
     messageToSend: "Incorrect email or password",
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     extraData: {
       userId,
     },
   });
 
-export const getActivationEmailFailedError = (): ControledError =>
-  new ControledError({
+export const getActivationEmailFailedError = (): ControlledError =>
+  new ControlledError({
     code: ErrorCode.ACTIVATION_EMAIL_FAILED,
     message: "Failed to send the activation email",
     statusCode: 500,
     messageToSend: "We couldn't send your activation email. Please try registering again.",
-    severety: ErrorSeverety.high,
+    severity: ErrorSeverity.high,
   });
 
-export const getAccountAlreadyActivatedError = (userId: string): ControledError =>
-  new ControledError({
+export const getEmailChangeEmailFailedError = (): ControlledError =>
+  new ControlledError({
+    code: ErrorCode.EMAIL_CHANGE_EMAIL_FAILED,
+    message: "Failed to send the email change confirmation",
+    statusCode: 500,
+    messageToSend: "We couldn't send the confirmation email. Please try again.",
+    severity: ErrorSeverity.high,
+  });
+
+export const getAccountAlreadyActivatedError = (userId: string): ControlledError =>
+  new ControlledError({
     code: ErrorCode.ACCOUNT_ALREADY_ACTIVATED,
     message: "Account already activated",
     statusCode: 409,
     messageToSend: "This account has already been activated",
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     extraData: {
       userId,
     },
   });
 
-export const getPendingRegistrationCooldownError = (secondsRemaining: number): ControledError =>
-  new ControledError({
+export const getPendingRegistrationCooldownError = (secondsRemaining: number): ControlledError =>
+  new ControlledError({
     code: ErrorCode.REGISTRATION_COOLDOWN,
     message: "Registration retried too soon after a pending attempt",
     statusCode: 429,
     messageToSend: `An activation email was already sent. Check your inbox, or try again in ${secondsRemaining}s.`,
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     details: {
       retryAfterSeconds: secondsRemaining,
     },
@@ -109,7 +130,7 @@ const getDuplicateKeyNames = (duplicatedKeys: DuplicatedKeys): string[] =>
 
 export const getDuplicateKeyRegistrationError = (
   duplicatedKeys: DuplicatedKeys,
-): ControledError => {
+): ControlledError => {
   const duplicateKeyNames = getDuplicateKeyNames(duplicatedKeys);
 
   // Mark every duplicated key as TAKEN, keyed by the same field name the request used.
@@ -117,10 +138,10 @@ export const getDuplicateKeyRegistrationError = (
     duplicateKeyNames.map((key) => [key, FieldErrorCode.TAKEN]),
   );
 
-  return new ControledError({
+  return new ControlledError({
     code: ErrorCode.DUPLICATE_KEY,
     message: `Duplicate key/s: ${duplicateKeyNames.join(", ")}`,
-    severety: ErrorSeverety.low,
+    severity: ErrorSeverity.low,
     statusCode: 409,
     messageToSend: `Already in use: ${duplicateKeyNames.join(", ")}`,
     fields,

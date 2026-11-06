@@ -1,26 +1,29 @@
-/* eslint-disable no-param-reassign */
-/* eslint-disable import-x/no-extraneous-dependencies */
 /* eslint-disable n/prefer-promises/dns */
-/* eslint-disable @typescript-eslint/no-require-imports */
-/* eslint-disable n/global-require */
 
+import { setServers } from "node:dns";
 import mongoose from "mongoose";
-import debug from "debug";
-import chalk from "chalk";
-
-const debugInConsole = debug("user-template:database"); // Debug section setup
+import logger from "../server/utils/logger";
 
 // This promise resolved when the DB connection starts correctly and rejects if there is an error
 const connectToDB = (connectionString: string | undefined): Promise<void> =>
   new Promise((resolve, reject) => {
-    require("node:dns").setServers(["8.8.8.8", "1.1.1.1"]);
-    debugInConsole(chalk.whiteBright("Connecting to database..."));
+    if (!connectionString) {
+      reject(new Error("Missing CONN_STRING environment variable"));
+      return;
+    }
+
+    // Only when configured, otherwise the system's DNS is used.
+    const dnsServers = process.env.DNS_SERVERS;
+
+    if (dnsServers) {
+      setServers(dnsServers.split(",").map((server) => server.trim()));
+    }
+
+    logger.info("Connecting to database...");
     mongoose
       .connect(connectionString)
       .then(() => {
-        debugInConsole(
-          chalk.whiteBright("Connection to database ") + chalk.greenBright("SUCCESSFULL"),
-        );
+        logger.info("Connected to database");
         resolve(); // Resolve on correct connection
       })
       .catch((error) => {
@@ -28,7 +31,7 @@ const connectToDB = (connectionString: string | undefined): Promise<void> =>
           ...error,
           message: `Database error: ${error.message}`,
         };
-        reject(newError); // Reject with an error on failiure
+        reject(newError); // Reject with an error on failure
       });
   });
 
@@ -36,8 +39,10 @@ const connectToDB = (connectionString: string | undefined): Promise<void> =>
 mongoose.set("toJSON", {
   virtuals: true,
   transform: (_doc, ret) => {
-    delete ret._id;
-    delete ret.__v;
+    const json: Record<string, unknown> = ret;
+
+    delete json._id;
+    delete json.__v;
   },
 });
 

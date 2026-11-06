@@ -16,6 +16,7 @@ export enum ErrorCode {
   MISSING_AUTH = "MISSING_AUTH", // No Authorization header.
   INVALID_TOKEN = "INVALID_TOKEN", // Session expired or revoked: log the user out.
   REAUTH_REQUIRED = "REAUTH_REQUIRED", // Sensitive action: send the user through the login again.
+  FORBIDDEN = "FORBIDDEN", // Logged in, but the user's role isn't allowed to do this.
 
   // Email links (activation, cancel registration, revoke OTP, reset password...)
   INVALID_OR_EXPIRED_LINK = "INVALID_OR_EXPIRED_LINK",
@@ -29,11 +30,15 @@ export enum ErrorCode {
   USER_DISABLED = "USER_DISABLED",
   ACCOUNT_NOT_ACTIVATED = "ACCOUNT_NOT_ACTIVATED",
   ACCOUNT_ALREADY_ACTIVATED = "ACCOUNT_ALREADY_ACTIVATED",
+  PASSWORD_RESET_REQUIRED = "PASSWORD_RESET_REQUIRED", // An admin forced it: the emailed link is the only way in.
 
   // Registration
   DUPLICATE_KEY = "DUPLICATE_KEY", // See "fields" for which of email/username is TAKEN.
   REGISTRATION_COOLDOWN = "REGISTRATION_COOLDOWN", // See "details.retryAfterSeconds".
   ACTIVATION_EMAIL_FAILED = "ACTIVATION_EMAIL_FAILED",
+
+  // Email change
+  EMAIL_CHANGE_EMAIL_FAILED = "EMAIL_CHANGE_EMAIL_FAILED",
 }
 
 // What's wrong with a single field, used in the "fields" object of an error response

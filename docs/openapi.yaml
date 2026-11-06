@@ -1,0 +1,736 @@
+openapi: 3.1.0
+info:
+  title: user-template API
+  version: 1.0.0
+  license:
+    name: ISC
+    identifier: ISC
+  description: |
+    User accounts and authentication.
+
+    Errors always use the `Error` shape. Switch on `code`, never on `message`.
+    Every response carries an `X-Request-Id` header, which also appears in the server logs.
+servers:
+  - url: http://localhost:4000
+    description: Local development
+security: []
+tags:
+  - name: Auth
+    description: Registration, login and sessions
+  - name: Account
+    description: Sensitive actions on the logged in account
+  - name: Users
+    description: User profiles
+  - name: Health
+    description: Service status
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Check that the API and its database are up
+      responses:
+        "200":
+          description: The API can serve requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: The API has lost its database
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Create a pending account and email its activation link
+      description: |
+        A pending account with the same email is replaced after the retry cooldown. A pending
+        account holding only the username blocks it until its activation link expires.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Registration"
+      responses:
+        "201":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /auth/checkKeys:
+    post:
+      tags: [Auth]
+      operationId: checkKeys
+      summary: Check if an email or username is available
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: At least one of the two is required.
+              properties:
+                email:
+                  type: string
+                  format: email
+                username:
+                  $ref: "#/components/schemas/Username"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /auth/activate:
+    post:
+      tags: [Auth]
+      operationId: activate
+      summary: Activate an account with its email link, which also logs the user in
+      requestBody:
+        $ref: "#/components/requestBodies/LinkToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/Token"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /auth/cancelRegistration:
+    post:
+      tags: [Auth]
+      operationId: cancelRegistration
+      summary: Delete a pending account with its email link
+      requestBody:
+        $ref: "#/components/requestBodies/LinkToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /auth/resendActivation:
+    post:
+      tags: [Auth]
+      operationId: resendActivation
+      summary: Send a new activation link
+      requestBody:
+        $ref: "#/components/requestBodies/EmailOrUsername"
+      responses:
+        "202":
+          $ref: "#/components/responses/Accepted"
+        "400":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in with a password or a one-time password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  description: Email or username, in any casing.
+                password:
+                  type: string
+                  description: The password, or the one-time password if `withOtp` is true.
+                withOtp:
+                  type: boolean
+      responses:
+        "200":
+          $ref: "#/components/responses/Token"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /auth/requestOtp:
+    post:
+      tags: [Auth]
+      operationId: requestOtp
+      summary: Email a one-time password
+      requestBody:
+        $ref: "#/components/requestBodies/EmailOrUsername"
+      responses:
+        "202":
+          $ref: "#/components/responses/Accepted"
+        "400":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /auth/revokeOtp:
+    post:
+      tags: [Auth]
+      operationId: revokeOtp
+      summary: Invalidate a one-time password with its email link
+      requestBody:
+        $ref: "#/components/requestBodies/LinkToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /auth/requestPasswordReset:
+    post:
+      tags: [Auth]
+      operationId: requestPasswordReset
+      summary: Email a password reset link
+      requestBody:
+        $ref: "#/components/requestBodies/EmailOrUsername"
+      responses:
+        "202":
+          $ref: "#/components/responses/Accepted"
+        "400":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /auth/resetPassword:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      summary: Set a new password with the email link, which signs out every session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  $ref: "#/components/schemas/Password"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /auth/cancelPasswordReset:
+    post:
+      tags: [Auth]
+      operationId: cancelPasswordReset
+      summary: Invalidate a password reset with its email link
+      requestBody:
+        $ref: "#/components/requestBodies/LinkToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /auth/confirmEmailChange:
+    post:
+      tags: [Account]
+      operationId: confirmEmailChange
+      summary: Apply an email change with the link sent to the new address
+      requestBody:
+        $ref: "#/components/requestBodies/LinkToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /auth/refreshToken:
+    get:
+      tags: [Auth]
+      operationId: refreshToken
+      summary: Get a new token for the current session
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Token"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Sign out of the current session only
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /auth/signOutEverywhere:
+    post:
+      tags: [Auth]
+      operationId: signOutEverywhere
+      summary: Sign out of every session, the current one included
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /auth/changePassword:
+    post:
+      tags: [Account]
+      operationId: changePassword
+      summary: Change the password of the logged in user
+      description: Needs a session from a recent login, otherwise answers `REAUTH_REQUIRED`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  $ref: "#/components/schemas/Password"
+                signOutOtherSessions:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          $ref: "#/components/responses/Token"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /auth/requestEmailChange:
+    post:
+      tags: [Account]
+      operationId: requestEmailChange
+      summary: Email a confirmation link to a new address
+      description: |
+        Needs a session from a recent login, otherwise answers `REAUTH_REQUIRED`. Nothing changes
+        until the link is used. The current address gets a notice.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "202":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /auth/deleteAccount:
+    delete:
+      tags: [Account]
+      operationId: deleteAccount
+      summary: Permanently delete the logged in user
+      description: Needs a session from a recent login, otherwise answers `REAUTH_REQUIRED`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /users/myUser:
+    get:
+      tags: [Users]
+      operationId: getMyUser
+      summary: Get the logged in user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The logged in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyUser"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Users]
+      operationId: updateMyUser
+      summary: Edit the logged in user's profile
+      description: Only the fields sent change. At least one is required.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  $ref: "#/components/schemas/Name"
+                lastName:
+                  $ref: "#/components/schemas/Name"
+                username:
+                  $ref: "#/components/schemas/Username"
+                picture:
+                  type: [string, "null"]
+                  format: uri
+                  maxLength: 2048
+                  description: An https link, or null to remove the picture.
+      responses:
+        "200":
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, information]
+                properties:
+                  id:
+                    type: string
+                  information:
+                    $ref: "#/components/schemas/Information"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /users/user/{userId}:
+    get:
+      tags: [Users]
+      operationId: getUser
+      summary: Get a user by id
+      description: Only for `ADMIN` and `SUPERUSER`, anyone else gets `FORBIDDEN`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+      responses:
+        "200":
+          description: The requested user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, information]
+                properties:
+                  id:
+                    type: string
+                  information:
+                    $ref: "#/components/schemas/Information"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  requestBodies:
+    LinkToken:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [token]
+            properties:
+              token:
+                type: string
+                description: The token from the email link.
+    EmailOrUsername:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email:
+                type: string
+                description: Email or username, in any casing.
+
+  responses:
+    Message:
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    Accepted:
+      description: |
+        Always the same answer, sent before any work is done, so it doesn't tell if the account
+        exists.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    Token:
+      description: A session token
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [token]
+            properties:
+              token:
+                type: string
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    Health:
+      type: object
+      required: [status, database]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+        database:
+          type: string
+          enum: [connected, disconnected]
+
+    Name:
+      type: string
+      maxLength: 50
+
+    Username:
+      type: string
+      minLength: 3
+      maxLength: 24
+      pattern: "^[a-zA-Z0-9_-]+$"
+      description: Unique regardless of casing. The casing is kept for display.
+
+    Password:
+      type: string
+      minLength: 8
+      description: At most 72 bytes.
+
+    Registration:
+      type: object
+      required: [firstName, lastName, username, email, password]
+      properties:
+        firstName:
+          $ref: "#/components/schemas/Name"
+        lastName:
+          $ref: "#/components/schemas/Name"
+        username:
+          $ref: "#/components/schemas/Username"
+        email:
+          type: string
+          format: email
+        password:
+          $ref: "#/components/schemas/Password"
+        picture:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: An https link.
+
+    Information:
+      type: object
+      required: [email, username]
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        picture:
+          type: string
+          format: uri
+
+    MyUser:
+      type: object
+      required: [id, information, role, resetPasswordOnLogin]
+      properties:
+        id:
+          type: string
+        information:
+          $ref: "#/components/schemas/Information"
+        role:
+          type: string
+          enum: [USER, ADMIN, SUPERUSER]
+        resetPasswordOnLogin:
+          type: boolean
+          description: Hint to prompt a password change. Not enforced by the API.
+
+    Error:
+      type: object
+      required: [error, status, code, message]
+      properties:
+        error:
+          type: boolean
+          const: true
+        status:
+          type: integer
+          description: Same as the HTTP status code.
+        code:
+          type: string
+          description: What to switch on. Codes are never renamed or reused.
+          enum:
+            - INTERNAL_ERROR
+            - BAD_REQUEST
+            - NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - VALIDATION_FAILED
+            - TOO_MANY_REQUESTS
+            - MISSING_AUTH
+            - INVALID_TOKEN
+            - REAUTH_REQUIRED
+            - FORBIDDEN
+            - INVALID_OR_EXPIRED_LINK
+            - INVALID_CREDENTIALS
+            - USER_NOT_FOUND
+            - USER_DISABLED
+            - ACCOUNT_NOT_ACTIVATED
+            - ACCOUNT_ALREADY_ACTIVATED
+            - DUPLICATE_KEY
+            - REGISTRATION_COOLDOWN
+            - ACTIVATION_EMAIL_FAILED
+            - EMAIL_CHANGE_EMAIL_FAILED
+        message:
+          type: string
+          description: Human-readable fallback.
+        fields:
+          type: object
+          description: What's wrong with each field.
+          additionalProperties:
+            type: string
+            enum:
+              - REQUIRED
+              - INVALID_TYPE
+              - INVALID_FORMAT
+              - TOO_SHORT
+              - TOO_LONG
+              - TAKEN
+              - INVALID
+        details:
+          type: object
+          description: Extra public data, eg. `retryAfterSeconds`.
+          additionalProperties: true

@@ -5,6 +5,7 @@ import {
   getAccountAlreadyActivatedError,
   getUserNotFoundForIdError,
 } from "../../../data/errorObjects/userErrors";
+import hashToken from "../../utils/auth/hashToken";
 
 const activateUser = async (req: Request, res: Response, next: NextFunction) => {
   const { userId, token } = res.locals; // Grab the userId and raw token left by the signedIdTokenValidator.
@@ -19,22 +20,25 @@ const activateUser = async (req: Request, res: Response, next: NextFunction) => 
       return;
     }
 
-    // If the user has no pending verificationToken it's already active.
-    if (!foundUser.verificationToken) {
+    if (foundUser.activatedAt) {
       const alreadyActivatedError = getAccountAlreadyActivatedError(userId);
       next(alreadyActivatedError);
       return;
     }
 
     // If the token does not match the one on record it's stale (eg. a newer activation email was sent since).
-    if (foundUser.verificationToken !== token) {
+    if (foundUser.verificationToken !== hashToken(token)) {
       const invalidOrExpiredTokenError = getInvalidOrExpiredTokenError();
       next(invalidOrExpiredTokenError);
       return;
     }
 
-    // Clear the verificationToken, activating the account, and save the user back to the DB.
+    // Activate the account, clear what was only needed while pending, and save the user back to the DB.
+    // pendingExpiresAt has to go too, or MongoDB would still delete the account when it passes.
+    foundUser.activatedAt = new Date();
     foundUser.verificationToken = undefined;
+    foundUser.activationLastSentAt = undefined;
+    foundUser.pendingExpiresAt = undefined;
     await foundUser.save();
 
     // Keep the userId and tokenVersion in res.locals so the chained sendToken middleware can log the user in.

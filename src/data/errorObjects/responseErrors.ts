@@ -1,6 +1,6 @@
 import ResponseError from "../../types/errorTypes/ResponseError";
 import { ErrorCode } from "../../types/errorTypes/ErrorCode";
-import ControledError from "./ControledError";
+import ControlledError from "./ControlledError";
 
 // Not found error builder
 export const getNotFoundError = (): ResponseError => ({
@@ -11,7 +11,7 @@ export const getNotFoundError = (): ResponseError => ({
 });
 
 // Response error builder: only the public parts of the error make it into the response.
-export const buildResponseError = (error: ControledError): ResponseError => ({
+export const buildResponseError = (error: ControlledError): ResponseError => ({
   error: true,
   status: error.statusCode,
   code: error.code,

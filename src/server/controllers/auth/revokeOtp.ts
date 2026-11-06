@@ -3,6 +3,7 @@ import Users from "../../../database/models/Users";
 import { getInvalidOrExpiredTokenError } from "../../../data/errorObjects/authErrors";
 import { getUserNotFoundForIdError } from "../../../data/errorObjects/userErrors";
 import clearOtp from "../../utils/auth/clearOtp";
+import hashToken from "../../utils/auth/hashToken";
 
 // Handles the "wasn't you?" link on the OTP email: invalidates a one-time password that
 // wasn't requested by the account owner. Leaves the account itself untouched.
@@ -24,7 +25,7 @@ const revokeOtp = async (req: Request, res: Response, next: NextFunction) => {
     if (
       !foundUser.credentials.otpPassword ||
       !foundUser.otpRevokeToken ||
-      foundUser.otpRevokeToken !== token
+      foundUser.otpRevokeToken !== hashToken(token)
     ) {
       const invalidOrExpiredTokenError = getInvalidOrExpiredTokenError();
       next(invalidOrExpiredTokenError);

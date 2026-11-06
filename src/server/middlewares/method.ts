@@ -17,9 +17,12 @@ export enum Methods {
 const method =
   (...methods: Methods[]) =>
   (req: Request, res: Response, next: NextFunction) => {
-    if (!methods.includes(req.method as Methods)) {
-      res.set("Allow", methods.join(", "));
-      next(getMethodNotAllowedError(methods, req.method));
+    // HEAD is a GET without the response body, so anything that answers GET answers it too.
+    const allowedMethods = methods.includes(Methods.GET) ? [...methods, Methods.HEAD] : methods;
+
+    if (!allowedMethods.includes(req.method as Methods)) {
+      res.set("Allow", allowedMethods.join(", "));
+      next(getMethodNotAllowedError(allowedMethods, req.method));
       return;
     }
     next();

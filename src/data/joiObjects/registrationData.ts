@@ -1,17 +1,15 @@
 import Joi from "joi";
-import { JoiPassword } from "./joiTypes";
+import { JoiName, JoiPassword, JoiPicture, JoiUsername } from "./joiTypes";
 
 const registrationData = Joi.object({
-  firstName: Joi.string().required().messages({
-    "any.required": "Missing Fist name",
+  firstName: JoiName().required().messages({
+    "any.required": "Missing First name",
   }),
-  lastName: Joi.string().required().messages({
+  lastName: JoiName().required().messages({
     "any.required": "Missing Last name",
   }),
-  picture: Joi.string().messages({
-    "any.required": "Missing Picture link",
-  }),
-  username: Joi.string().required().messages({
+  picture: JoiPicture(),
+  username: JoiUsername().required().messages({
     "any.required": "Missing username",
   }),
   password: JoiPassword().required().messages({

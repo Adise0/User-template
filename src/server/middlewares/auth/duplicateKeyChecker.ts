@@ -1,39 +1,17 @@
 import { NextFunction, Request, Response } from "express";
-import Users from "../../../database/models/Users";
-import {
-  DuplicatedKeys,
-  getDuplicateKeyRegistrationError,
-} from "../../../data/errorObjects/userErrors";
+import { getDuplicateKeyRegistrationError } from "../../../data/errorObjects/userErrors";
+import getRegistrationConflict from "../../utils/auth/getRegistrationConflict";
 
+// Tells if /register would accept these keys, without changing anything. A cooldown isn't a
+// conflict, so it's left for /register to report.
 const duplicateKeyChecker = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, username, goNext } = res.locals; // Get the keys from the res.locals
+    const { email, username } = res.locals; // Get the keys from the res.locals
 
-    const usersWithKeysFound = await Users.find({
-      $or: [{ "information.email": email || "" }, { "information.username": username || "" }],
-    });
+    const { hasDuplicates, duplicatedKeys } = await getRegistrationConflict(email, username);
 
-    if (usersWithKeysFound.length) {
-      const duplicatedKeys: DuplicatedKeys = {
-        email: false,
-        username: false,
-      };
-
-      usersWithKeysFound.forEach((userFound) => {
-        if (userFound.information.email === email) {
-          duplicatedKeys.email = true;
-        }
-        if (userFound.information.username === username) {
-          duplicatedKeys.username = true;
-        }
-      });
-
-      const duplicatedKeysError = getDuplicateKeyRegistrationError(duplicatedKeys);
-      next(duplicatedKeysError);
-      return;
-    }
-    if (goNext) {
-      next();
+    if (hasDuplicates) {
+      next(getDuplicateKeyRegistrationError(duplicatedKeys));
       return;
     }
 
@@ -41,7 +19,6 @@ const duplicateKeyChecker = async (req: Request, res: Response, next: NextFuncti
       message: "No conflicts",
     });
   } catch (error) {
-    // If that's not the error simply go next
     next(error);
   }
 };

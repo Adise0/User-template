@@ -22,7 +22,17 @@ export default defineConfig([
   tseslint.configs.recommended,
   eslintConfigPrettier,
   {
-    ignores: ["build/**", "eslint.config.mts"],
+    ignores: ["build/**", "coverage/**", "eslint.config.mts", "jest.config.js"],
+  },
+  {
+    files: ["tests/**/*.ts"],
+    languageOptions: { globals: globals.jest },
+    rules: {
+      "no-await-in-loop": "off",
+      "n/no-sync": "off",
+      "n/prefer-promises/dns": "off",
+      "no-script-url": "off",
+    },
   },
   {
     rules: {
@@ -37,6 +47,6 @@ export default defineConfig([
       "import/no-unresolved": "off",
       "lines-between-class-members": "off",
       "import-x/no-extraneous-dependencies": "off",
-    }
+    },
   },
 ]);

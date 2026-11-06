@@ -17,18 +17,37 @@ export const authEndpoints = <const>{
   resetPassword: "/resetPassword",
   cancelPasswordReset: "/cancelPasswordReset",
   changePassword: "/changePassword",
+  logout: "/logout",
   signOutEverywhere: "/signOutEverywhere",
+  requestEmailChange: "/requestEmailChange",
+  confirmEmailChange: "/confirmEmailChange",
   deleteAccount: "/deleteAccount",
 };
 
 export const userEndpoints = <const>{
   path: "/users",
   myUser: "/myUser",
-  getUser: "/user/:userId",
+};
+
+export const adminEndpoints = <const>{
+  path: "/admin",
+  users: "/users",
+  user: "/users/:userId",
+  disableUser: "/users/:userId/disable",
+  enableUser: "/users/:userId/enable",
+  signOutUser: "/users/:userId/signOut",
+  forcePasswordReset: "/users/:userId/forcePasswordReset",
+  userRole: "/users/:userId/role",
+};
+
+export const healthEndpoints = <const>{
+  path: "/health",
 };
 
 // This is the root router containing all other routers
 export const endpoints = <const>{
+  health: healthEndpoints,
   auth: authEndpoints,
   users: userEndpoints,
+  admin: adminEndpoints,
 };
