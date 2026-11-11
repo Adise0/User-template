@@ -5,7 +5,7 @@ import { getInvalidTokenError, getNoAuthHeaderError } from "../../../data/errorO
 import { getUserDisabledError } from "../../../data/errorObjects/userErrors";
 import TokenPayload, { TokenPurpose } from "../../../types/authTypes/TokenPayload";
 import { userSessionMaxAgeInHours } from "../../../data/serverConfig/server-config";
-import getTokenSecret from "../../utils/auth/getTokenSecret";
+import getTokenSecret, { tokenAlgorithm } from "../../utils/auth/getTokenSecret";
 
 const tokenValidator = async (req: Request, res: Response, next: NextFunction) => {
   const headerAuth = req.header("Authorization"); // Grab the request Authorization header
@@ -23,7 +23,7 @@ const tokenValidator = async (req: Request, res: Response, next: NextFunction) =
   let realTokenPayload: TokenPayload;
 
   try {
-    const tokenPayload = jwt.verify(token, getTokenSecret()); // Verify the token
+    const tokenPayload = jwt.verify(token, getTokenSecret(), { algorithms: [tokenAlgorithm] }); // Verify the token
     realTokenPayload = tokenPayload as TokenPayload; // Extract the token payload
   } catch {
     // If the validation does not pass write the error and go next.

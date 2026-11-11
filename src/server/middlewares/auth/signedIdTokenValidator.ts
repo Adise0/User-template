@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { getInvalidOrExpiredTokenError } from "../../../data/errorObjects/authErrors";
 import { SignedIdTokenPayload } from "../../../types/authTypes/TokenPayload";
-import getTokenSecret from "../../utils/auth/getTokenSecret";
+import getTokenSecret, { tokenAlgorithm } from "../../utils/auth/getTokenSecret";
 
 // Shared by every endpoint that takes a single signed link token in the body
 // (activate, cancelRegistration, revokeOtp, ...). It verifies the JWT signature, checks the token
@@ -15,7 +15,7 @@ const signedIdTokenValidator =
     const { token } = req.body; // Grab the token left in the body by the request validator.
 
     try {
-      const tokenPayload = jwt.verify(token, getTokenSecret()); // Verify the token
+      const tokenPayload = jwt.verify(token, getTokenSecret(), { algorithms: [tokenAlgorithm] }); // Verify the token
       const realTokenPayload = tokenPayload as SignedIdTokenPayload; // Extract the token payload
 
       // A token issued for something else (another kind of link, or a session) is not valid here.

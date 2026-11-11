@@ -5,7 +5,7 @@ import { CreatedUserData } from "../../../types/userTypes/UserData";
 
 const createUser = async (req: Request, res: Response, next: NextFunction) => {
   // Get the Registration data from the request body object.
-  const { email, firstName, lastName, password, picture, username }: RegistrationData = req.body;
+  const { email, firstName, lastName, password, username }: RegistrationData = req.body;
 
   try {
     const hashedPassword = await hashPassword(password); // Hash the new user's password.
@@ -17,7 +17,6 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
         email,
         firstName,
         lastName,
-        picture,
         username,
       },
       isDisabled: false,

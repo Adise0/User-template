@@ -86,17 +86,11 @@ describe("register", () => {
     ["username with spaces", { username: "  admin  " }, "username", "INVALID_FORMAT"],
     ["blank first name", { firstName: "   " }, "firstName", "REQUIRED"],
     ["too long last name", { lastName: "x".repeat(51) }, "lastName", "TOO_LONG"],
-    ["http picture", { picture: "http://a.com/x.png" }, "picture", "INVALID_FORMAT"],
-    ["javascript: picture", { picture: "javascript:alert(1)" }, "picture", "INVALID_FORMAT"],
   ])("rejects a %s", async (_name, overrides, field, code) => {
     const { status, json } = await register(overrides);
 
     expect(status).toBe(400);
     expect(json.fields[field]).toBe(code);
-  });
-
-  test("accepts an https picture", async () => {
-    expect((await register({ picture: "https://a.com/x.png" })).status).toBe(201);
   });
 });
 

@@ -5,7 +5,6 @@ interface UserData {
     firstName: string;
     lastName: string;
     email: string;
-    picture: string;
     username: string;
   };
 
@@ -20,7 +19,6 @@ export interface CreatedUserData {
     firstName?: string;
     lastName?: string;
     email: string;
-    picture?: string;
     username: string;
   };
 

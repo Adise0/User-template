@@ -13,6 +13,7 @@ import {
 import { otpMaxAttempts, saltRounds } from "../../../data/serverConfig/server-config";
 import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
 import clearOtp from "../../utils/auth/clearOtp";
+import sendSecurityNotice from "../../utils/email/sendSecurityNotice";
 
 // Hash of a random string nobody knows. When there's no real hash to compare against (unknown
 // user, no password set), the password is still compared against this one so the response takes
@@ -74,10 +75,24 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
         return;
       }
 
-      // If the password is valid erase the OTP (since it's, well, One time) along with everything
-      // tied to it, and save the user back to the DB.
-      clearOtp(foundUser);
-      await foundUser.save();
+      // Consume the OTP in one atomic step that only matches while it's still stored: if two
+      // requests with the right code race, only the first one gets a session.
+      const consumedOtp = await Users.updateOne(
+        { _id: foundUser._id, "credentials.otpPassword": otpPassword },
+        {
+          $unset: {
+            "credentials.otpPassword": "",
+            "credentials.otpExpiresAt": "",
+            otpRevokeToken: "",
+          },
+          $set: { "credentials.otpAttempts": 0 },
+        },
+      );
+
+      if (consumedOtp.modifiedCount === 0) {
+        next(invalidPasswordError);
+        return;
+      }
     } else {
       // Check if the password is valid (against the dummy hash if the DB user has none, to keep the timing the same).
       const isPasswordValid = await bcrypt.compare(
@@ -113,6 +128,17 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
     if (foundUser.resetPasswordOnLogin) {
       next(getPasswordResetRequiredError(foundUser.id));
       return;
+    }
+
+    // The owner deleted the account but is back within the grace period: logging in cancels it.
+    if (foundUser.scheduledDeletionAt) {
+      await Users.updateOne({ _id: foundUser._id }, { $unset: { scheduledDeletionAt: "" } });
+
+      sendSecurityNotice(
+        foundUser.credentials.email,
+        "Your account deletion was cancelled",
+        "You logged in, so your account won't be deleted. If this wasn't you, reset your password right away.",
+      );
     }
 
     // If every check has passed write the user id and token version in the res.locals object and go next.

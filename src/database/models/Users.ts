@@ -18,7 +18,6 @@ const UserSchema = new Schema<DatabaseUserData>(
         type: String,
         required: true,
       },
-      picture: String,
     },
     // Source of truth for logins and uniqueness. Both keys are stored lowercased.
     credentials: {
@@ -89,6 +88,13 @@ const UserSchema = new Schema<DatabaseUserData>(
     // Only set on pending accounts: MongoDB deletes the account once this date passes (TTL index).
     // Activation has to unset it, or the account would be deleted anyway.
     pendingExpiresAt: {
+      type: Date,
+      expires: 0,
+    },
+
+    // Only set on accounts their owner deleted: MongoDB deletes the account once this date passes
+    // (TTL index). Logging in before then unsets it, which cancels the deletion.
+    scheduledDeletionAt: {
       type: Date,
       expires: 0,
     },

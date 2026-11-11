@@ -192,21 +192,13 @@ describe("profile", () => {
     const { token } = await loginAs();
     const { status, json } = await call("PATCH", "/users/myUser", {
       token,
-      body: { firstName: "  Bea ", picture: "https://a.com/me.png" },
+      body: { firstName: "  Bea " },
     });
 
     expect(status).toBe(200);
     expect(json.information.firstName).toBe("Bea");
     expect(json.information.lastName).toBe("Smith");
     expect(json.credentials).toBeUndefined();
-  });
-
-  test("null removes the picture", async () => {
-    const { token } = await loginAs();
-    await call("PATCH", "/users/myUser", { token, body: { picture: "https://a.com/me.png" } });
-    const { json } = await call("PATCH", "/users/myUser", { token, body: { picture: null } });
-
-    expect(json.information.picture).toBeUndefined();
   });
 
   test("a new username updates the login too", async () => {
@@ -235,7 +227,7 @@ describe("profile", () => {
   test.each([
     ["nothing", {}],
     ["only an email", { email: "evil@x.com" }],
-    ["an http picture", { picture: "http://a.com/x.png" }],
+    ["only an unknown field", { picture: "https://a.com/x.png" }],
   ])("sending %s is a 400", async (_name, body) => {
     const { token } = await loginAs();
 
@@ -350,14 +342,27 @@ describe("email change", () => {
 });
 
 describe("delete account", () => {
-  test("needs a fresh session, then removes the user", async () => {
+  test("needs a fresh session, then schedules the deletion and signs out", async () => {
     const { user, token } = await loginAs();
 
     const stale = await call("DELETE", "/auth/deleteAccount", { token: staleSession(user) });
     expect(stale.status).toBe(403);
 
-    expect((await call("DELETE", "/auth/deleteAccount", { token })).status).toBe(200);
-    expect(await Users.findById(user.id)).toBeNull();
+    const { status, json } = await call("DELETE", "/auth/deleteAccount", { token });
+
+    expect(status).toBe(200);
+    expect(json.scheduledDeletionAt).toEqual(expect.any(String));
+    expect((await Users.findById(user.id))?.scheduledDeletionAt).toBeInstanceOf(Date);
     expect((await getMe(token)).status).toBe(401);
+    await waitForEmail(user.credentials.email, "will be deleted");
+  });
+
+  test("logging back in cancels the deletion", async () => {
+    const { user, token } = await loginAs();
+    await call("DELETE", "/auth/deleteAccount", { token });
+
+    expect(await login(user.credentials.email)).toEqual(expect.any(String));
+    expect((await Users.findById(user.id))?.scheduledDeletionAt).toBeUndefined();
+    await waitForEmail(user.credentials.email, "deletion was cancelled");
   });
 });

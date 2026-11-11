@@ -3,7 +3,6 @@ interface RegistrationData {
   email: string;
   firstName: string;
   lastName: string;
-  picture: string;
   password: string;
   username: string;
 }

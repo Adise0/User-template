@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "user-template API",
-    "description": "Every endpoint of the API, in the same structure as the routes.\n\n**Setup** (see postman/README.md in the repo):\n1. Postman Vault > settings: enable **support in Postman scripts**, and allow this collection.\n2. Add a vault secret `loginPassword`, and set the `loginEmail` collection variable.\n3. Run **Auth > Login**. The session token is stored in the vault as `authToken`.\n\nAuthed requests inherit the collection's Bearer auth (`{{vault:authToken}}`). Public ones are set to No Auth. The token is refreshed automatically when it's past half its life, so it only needs a new login after 2 hours idle.\n\nRequests that come from an email link use the `linkToken` variable: paste the last part of the link into it.",
+    "description": "Every endpoint of the API, in the same structure as the routes.\n\n**Setup** (see postman/README.md in the repo):\n1. Postman Vault > settings: enable **support in Postman scripts**, and allow this collection.\n2. Add vault secrets `loginEmail` (your email, also used to register), `loginPassword` (also the password you register with) and `newPassword` (used by Change password and Reset password), and set the `registerUsername` collection variable.\n3. Run **Auth > Login**. The session token is stored in the vault as `authToken`.\n\nAuthed requests inherit the collection's Bearer auth (`{{vault:authToken}}`). Public ones are set to No Auth. The token is refreshed automatically when it's past half its life, so it only needs a new login after 2 hours idle.\n\nRequests that come from an email link use the `linkToken` variable: paste the last part of the link into it.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -14,32 +14,6 @@
       }
     ]
   },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:4000"
-    },
-    {
-      "key": "loginEmail",
-      "value": "",
-      "description": "Email or username to log in with."
-    },
-    {
-      "key": "linkToken",
-      "value": "",
-      "description": "Token from the last email link (activation, reset, email change...)."
-    },
-    {
-      "key": "otp",
-      "value": "",
-      "description": "One-time password from the OTP email."
-    },
-    {
-      "key": "targetUserId",
-      "value": "",
-      "description": "User the admin requests act on. Admin > List users fills it in."
-    }
-  ],
   "event": [
     {
       "listen": "prerequest",
@@ -156,7 +130,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"new.user@example.com\",\n  \"username\": \"new_user\"\n}",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\",\n  \"username\": \"{{registerUsername}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -199,7 +173,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"firstName\": \"Ann\",\n  \"lastName\": \"Smith\",\n  \"username\": \"new_user\",\n  \"email\": \"new.user@example.com\",\n  \"password\": \"password123\",\n  \"picture\": \"https://example.com/avatar.png\"\n}",
+                  "raw": "{\n  \"firstName\": \"Ann\",\n  \"lastName\": \"Smith\",\n  \"username\": \"{{registerUsername}}\",\n  \"email\": \"{{vault:loginEmail}}\",\n  \"password\": \"{{vault:loginPassword}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -211,7 +185,7 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["auth", "register"]
                 },
-                "description": "Creates a pending account and emails its activation link. `picture` is optional."
+                "description": "Creates a pending account and emails its activation link."
               },
               "event": [
                 {
@@ -336,7 +310,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"new.user@example.com\"\n}",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -385,7 +359,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"{{vault:loginPassword}}\"\n}",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\",\n  \"password\": \"{{vault:loginPassword}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -436,7 +410,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{loginEmail}}\"\n}",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -479,7 +453,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"{{otp}}\",\n  \"withOtp\": true\n}",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\",\n  \"password\": \"{{otp}}\",\n  \"withOtp\": true\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -681,7 +655,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{loginEmail}}\"\n}",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -724,7 +698,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"token\": \"{{linkToken}}\",\n  \"password\": \"newpassword123\"\n}",
+                  "raw": "{\n  \"token\": \"{{linkToken}}\",\n  \"password\": \"{{vault:newPassword}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -813,7 +787,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"password\": \"newpassword123\",\n  \"signOutOtherSessions\": true\n}",
+                  "raw": "{\n  \"password\": \"{{vault:newPassword}}\",\n  \"signOutOtherSessions\": true\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -861,7 +835,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"new.address@example.com\"\n}",
+                  "raw": "{\n  \"email\": \"{{newEmail}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -942,7 +916,7 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["auth", "deleteAccount"]
                 },
-                "description": "Needs a login from the last 5 minutes: run **Auth > Login** first, otherwise it answers `REAUTH_REQUIRED`. Permanently deletes the logged in account."
+                "description": "Needs a login from the last 5 minutes: run **Auth > Login** first, otherwise it answers `REAUTH_REQUIRED`. Schedules the logged in account for deletion (14 days by default) and signs it out everywhere. Logging in before the date cancels it."
               },
               "event": [
                 {
@@ -1134,7 +1108,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Ann\",\n  \"lastName\": \"Smith\",\n  \"username\": \"new_user\",\n  \"picture\": \"https://example.com/avatar.png\"\n}",
+              "raw": "{\n  \"firstName\": \"Ann\",\n  \"lastName\": \"Smith\",\n  \"username\": \"new_user\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1146,7 +1120,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["users", "myUser"]
             },
-            "description": "Only the fields sent change, at least one is required. `picture: null` removes the picture. The email can't be changed here."
+            "description": "Only the fields sent change, at least one is required. The email can't be changed here."
           },
           "event": [
             {
@@ -1341,7 +1315,12 @@
                 "exec": [
                   "pm.test(\"Status is 200\", () => {",
                   "  pm.expect(pm.response.code).to.be.oneOf([200]);",
-                  "});"
+                  "});",
+                  "",
+                  "// The target is gone, so clear it. Admin > List users fills it in again.",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.unset(\"targetUserId\");",
+                  "}"
                 ]
               }
             }
@@ -1522,6 +1501,37 @@
           ]
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "registerUsername",
+      "value": "",
+      "description": "Username for the account you register."
+    },
+    {
+      "key": "newEmail",
+      "value": "",
+      "description": "Another real address, for Account > Request email change. Current value only."
+    },
+    {
+      "key": "linkToken",
+      "value": "",
+      "description": "Token from the last email link (activation, reset, email change...)."
+    },
+    {
+      "key": "otp",
+      "value": "",
+      "description": "One-time password from the OTP email."
+    },
+    {
+      "key": "targetUserId",
+      "value": "",
+      "description": "User the admin requests act on. Admin > List users fills it in."
     }
   ]
 }

@@ -18,8 +18,6 @@ npm run dev
 
 The API runs on `http://localhost:4000` by default. To check it's up, open `/health`.
 
-The SMTP host is set in [src/server/utils/email/index.ts](src/server/utils/email/index.ts).
-
 ## Scripts
 
 | Script                 | What it does                            |
@@ -35,19 +33,22 @@ To run a compiled build, use `node build/index.js`.
 
 The server checks these at startup and refuses to start if one is missing or invalid.
 
-| Variable         | Required | Description                                                                   |
-| ---------------- | -------- | ----------------------------------------------------------------------------- |
-| `CONN_STRING`    | Yes      | MongoDB connection string                                                     |
-| `TOKEN_SECRET`   | Yes      | Secret that signs every token, at least 32 characters                         |
-| `EMAIL`          | Yes      | SMTP username                                                                 |
-| `EMAIL_PASSWORD` | Yes      | SMTP password                                                                 |
-| `FRONTEND_URL`   | Yes      | Base URL for the links in emails                                              |
-| `BACKEND_URL`    | Yes      | Base URL for the debug links in emails                                        |
-| `EMAIL_ALIAS`    | No       | The "from" address, defaults to `EMAIL`                                       |
-| `PORT`           | No       | Defaults to `4000`                                                            |
-| `NODE_ENV`       | No       | `production` turns off pretty logs                                            |
-| `LOG_LEVEL`      | No       | Defaults to `info`. `debug` also logs expected errors and users               |
-| `DNS_SERVERS`    | No       | Comma-separated DNS servers for the database lookup, defaults to the system's |
+| Variable         | Required | Description                                                                         |
+| ---------------- | -------- | ----------------------------------------------------------------------------------- |
+| `CONN_STRING`    | Yes      | MongoDB connection string                                                           |
+| `TOKEN_SECRET`   | Yes      | Secret that signs every token, at least 32 characters                               |
+| `SMTP_HOST`      | Yes      | SMTP server, eg. `smtp.example.com`                                                 |
+| `EMAIL`          | Yes      | SMTP username                                                                       |
+| `EMAIL_PASSWORD` | Yes      | SMTP password                                                                       |
+| `FRONTEND_URL`   | Yes      | Base URL for the links in emails                                                    |
+| `BACKEND_URL`    | Yes      | Base URL for the debug links in emails                                              |
+| `SMTP_PORT`      | No       | `465` (TLS, the default) or `587` (STARTTLS, required)                              |
+| `EMAIL_ALIAS`    | No       | The "from" address, defaults to `EMAIL`                                             |
+| `CORS_ORIGINS`   | No       | Comma-separated browser origins allowed to call the API, defaults to `FRONTEND_URL` |
+| `PORT`           | No       | Defaults to `4000`                                                                  |
+| `NODE_ENV`       | No       | `production` turns off pretty logs                                                  |
+| `LOG_LEVEL`      | No       | Defaults to `info`. `debug` also logs expected errors and users                     |
+| `DNS_SERVERS`    | No       | Comma-separated DNS servers for the database lookup, defaults to the system's       |
 
 Everything else, such as session lengths, cooldowns and rate limits, is in
 [src/data/serverConfig/server-config.ts](src/data/serverConfig/server-config.ts).
@@ -82,6 +83,16 @@ counted from the last real login.
 Changing a password, changing the email and deleting the account need a login from the last 5
 minutes. Otherwise the API answers `REAUTH_REQUIRED`, and the frontend should send the user through
 the login again.
+
+### Deleting an account
+
+`DELETE /auth/deleteAccount` doesn't delete straight away. The account is signed out everywhere and
+gets a `scheduledDeletionAt` date, 14 days out by default, and the owner is emailed that date.
+Logging in before then cancels the deletion. Once the date passes, MongoDB removes the account (TTL
+index). Meanwhile its email and username stay taken.
+
+Set `accountDeletionGraceInDays` to `null` to delete immediately. An admin deleting a user
+(`DELETE /admin/users/:userId`) always deletes immediately.
 
 ### Email links
 
@@ -163,9 +174,10 @@ headers aren't logged, and tokens in URLs are masked.
 Before going live:
 
 - Remove the debug routes and the debug links in the emails. Search for `DEBUG` in `src/`.
-- Restrict `cors()` in [src/server/index.ts](src/server/index.ts) to your frontend.
-- Set `trust proxy` if you're behind a proxy, otherwise all users share one rate limit.
-- Move the rate limiter to a shared store if you run more than one instance.
+- Check `FRONTEND_URL` (or `CORS_ORIGINS`) is your real frontend, it's the only browser origin
+  allowed to call the API.
+- Read [SECURITY_SETTINGS.md](SECURITY_SETTINGS.md): proxies, running more than one instance and
+  the password policy are left to you there.
 
 Stop the server with `SIGTERM` or `SIGINT` so running requests can finish. `GET /health` answers
 `503` if the database connection is lost.

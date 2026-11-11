@@ -7,7 +7,6 @@ interface DatabaseUserData {
     firstName?: string;
     lastName?: string;
     email: string;
-    picture?: string;
     username: string; // As the user typed it, for display only.
   };
 
@@ -34,6 +33,7 @@ interface DatabaseUserData {
   pendingEmail?: string;
   emailChangeToken?: string;
   emailChangeLastSentAt?: Date;
+  scheduledDeletionAt?: Date;
   revokedSessions: { sessionId: string; expiresAt: Date }[];
   tokenVersion: number;
   createdAt: Date;

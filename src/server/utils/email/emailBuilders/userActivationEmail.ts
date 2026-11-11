@@ -176,11 +176,11 @@ const getUserActivationEmail = (activationToken: string) => `
         <div class="body">
           <p>You're almost ready to play. Activate your account to shuffle up and start your first game.</p>
           <div class="cta-wrapper">
-            <a href="${process.env.FRONTEND_URL}/auth/register/${activationToken}" class="activate-button">Activate my account</a>
+            <a href="${process.env.FRONTEND_URL}/auth/activate/${activationToken}" class="activate-button">Activate my account</a>
           </div>
           <p class="fallback-link">
             Button not working? Paste this link into your browser:<br />
-            <a href="${process.env.FRONTEND_URL}/auth/register/${activationToken}">${process.env.FRONTEND_URL}/auth/register/${activationToken}</a>
+            <a href="${process.env.FRONTEND_URL}/auth/activate/${activationToken}">${process.env.FRONTEND_URL}/auth/activate/${activationToken}</a>
           </p>
         </div>
         <div class="debug-note">
@@ -191,7 +191,7 @@ const getUserActivationEmail = (activationToken: string) => `
         <div class="not-you">
           <h2>Wasn't you?</h2>
           <p>If you didn't create this account, someone may have used your email by mistake. Cancel the registration below and nothing will be kept.</p>
-          <a href="${process.env.FRONTEND_URL}/auth/cancel/${activationToken}" class="cancel-link">Cancel this registration</a>
+          <a href="${process.env.FRONTEND_URL}/auth/cancelRegistration/${activationToken}" class="cancel-link">Cancel this registration</a>
         </div>
         <div class="debug-note">
           <p>Debug - no frontend yet</p>

@@ -156,6 +156,9 @@ paths:
       tags: [Auth]
       operationId: login
       summary: Log in with a password or a one-time password
+      description: >-
+        Limited per IP, and failed attempts are also limited per account whatever the IP. Logging
+        in to an account scheduled for deletion cancels the deletion.
       requestBody:
         required: true
         content:
@@ -415,13 +418,29 @@ paths:
     delete:
       tags: [Account]
       operationId: deleteAccount
-      summary: Permanently delete the logged in user
-      description: Needs a session from a recent login, otherwise answers `REAUTH_REQUIRED`.
+      summary: Delete the logged in user
+      description: >-
+        Needs a session from a recent login, otherwise answers `REAUTH_REQUIRED`. With a grace
+        period configured (`accountDeletionGraceInDays`, 14 days by default) the account is only
+        scheduled for deletion: every session is signed out, an email tells the owner the date, and
+        logging in before then cancels it. Without one the account is deleted right away and
+        `scheduledDeletionAt` is left out.
       security:
         - bearerAuth: []
       responses:
         "200":
-          $ref: "#/components/responses/Message"
+          description: Account scheduled for deletion, or deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string
+                  scheduledDeletionAt:
+                    type: string
+                    format: date-time
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -465,11 +484,6 @@ paths:
                   $ref: "#/components/schemas/Name"
                 username:
                   $ref: "#/components/schemas/Username"
-                picture:
-                  type: [string, "null"]
-                  format: uri
-                  maxLength: 2048
-                  description: An https link, or null to remove the picture.
       responses:
         "200":
           description: The updated profile
@@ -642,11 +656,6 @@ components:
           format: email
         password:
           $ref: "#/components/schemas/Password"
-        picture:
-          type: string
-          format: uri
-          maxLength: 2048
-          description: An https link.
 
     Information:
       type: object
@@ -661,9 +670,6 @@ components:
           format: email
         username:
           type: string
-        picture:
-          type: string
-          format: uri
 
     MyUser:
       type: object

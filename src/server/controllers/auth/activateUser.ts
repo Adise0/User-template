@@ -3,6 +3,7 @@ import Users from "../../../database/models/Users";
 import { getInvalidOrExpiredTokenError } from "../../../data/errorObjects/authErrors";
 import {
   getAccountAlreadyActivatedError,
+  getUserDisabledError,
   getUserNotFoundForIdError,
 } from "../../../data/errorObjects/userErrors";
 import hashToken from "../../utils/auth/hashToken";
@@ -17,6 +18,12 @@ const activateUser = async (req: Request, res: Response, next: NextFunction) => 
     if (!foundUser) {
       const notFoundForIdError = getUserNotFoundForIdError(userId);
       next(notFoundForIdError);
+      return;
+    }
+
+    // An admin can disable a pending account: activating it must not hand out a session.
+    if (foundUser.isDisabled) {
+      next(getUserDisabledError(foundUser.id));
       return;
     }
 

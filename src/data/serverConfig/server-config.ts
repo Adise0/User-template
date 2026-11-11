@@ -14,7 +14,7 @@ export const userSessionMaxAgeInHours: number | null = null;
 // No 0/O or 1/I, they're easy to mix up. Uppercase only, the login uppercases what the user types.
 export const charactersOTP = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 export const lengthOTP = 8;
-export const saltRounds = 10;
+export const saltRounds = 12;
 
 // User creation
 export const userActivationExpirationInMinutes = 20;
@@ -52,6 +52,10 @@ export const emailChangeRetryCooldownInSeconds = 60;
 // (credentials or activation link, NOT a token refresh) happened at most this long ago.
 export const freshAuthMaxAgeInMinutes = 5;
 
+// Account deletion (by the user). The account is signed out and kept for this long, logging back in
+// cancels the deletion, and MongoDB removes it once the time is up. null deletes it right away.
+export const accountDeletionGraceInDays: number | null = 14;
+
 // EMAIL DELIVERY
 export const emailMaxAttempts = 3; // Tries per email before giving up.
 export const emailRetryDelayInSeconds = 2; // Grows with each attempt: 2s, then 4s...
@@ -66,5 +70,9 @@ export const adminUserListMaxLimit = 100; // Most users a single page of the adm
 // RATE LIMITING (per IP)
 export const authRateLimitWindowInMinutes = 15;
 export const loginRateLimitMax = 10; // Login attempts per window.
+// Failed logins per account (whatever the IP) per window. Looser than the per-IP limit on purpose:
+// anyone who knows a username can burn it, locking the owner out of password login until the
+// window ends (OTP and password reset still work). See SECURITY_SETTINGS.md.
+export const accountLoginFailureLimitMax = 20;
 export const emailRateLimitMax = 5; // Requests that send an email (register, OTP, reset...) per window.
 export const keyCheckRateLimitMax = 10; // Email/username availability checks per window.

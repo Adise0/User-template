@@ -36,6 +36,7 @@ import requestEmailChange from "../controllers/auth/requestEmailChange";
 import confirmEmailChange from "../controllers/auth/confirmEmailChange";
 import deleteAccount from "../controllers/auth/deleteAccount";
 import {
+  accountLoginRateLimiter,
   emailRateLimiter,
   keyCheckRateLimiter,
   loginRateLimiter,
@@ -61,6 +62,7 @@ authRouter.all(
   method(Methods.POST),
   loginRateLimiter,
   loginDataValidator,
+  accountLoginRateLimiter,
   login,
   sendToken,
 );

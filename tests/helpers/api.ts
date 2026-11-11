@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Server } from "node:http";
 import { AddressInfo } from "node:net";
+import os from "node:os";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -16,7 +17,13 @@ let userCounter = 0;
 // Boots the API on a database of its own for the test file, and empties it before every test.
 export const useApi = () => {
   beforeAll(async () => {
-    await mongoose.connect(process.env.MONGO_URI as string, { dbName: `test-${randomUUID()}` });
+    await mongoose.connect(process.env.MONGO_URI as string, {
+      dbName: `test-${randomUUID()}`,
+      serverSelectionTimeoutMS: 10000,
+      // The driver loads "os" with a dynamic import(), which Jest's VM doesn't support: it fails
+      // silently and the handshake goes out without its metadata, so the server refuses it.
+      runtimeAdapters: { os },
+    });
     await Users.init();
 
     // Lets each call come from its own IP, so the per-IP rate limits don't leak between tests.
@@ -34,10 +41,13 @@ export const useApi = () => {
   });
 
   afterAll(async () => {
-    server.closeAllConnections();
-    await new Promise((resolve) => {
-      server.close(resolve);
-    });
+    // If the setup failed there's no server, and crashing here would hide the real error.
+    if (server) {
+      server.closeAllConnections();
+      await new Promise((resolve) => {
+        server.close(resolve);
+      });
+    }
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   });

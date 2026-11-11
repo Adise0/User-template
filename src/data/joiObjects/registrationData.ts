@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { JoiName, JoiPassword, JoiPicture, JoiUsername } from "./joiTypes";
+import { JoiName, JoiPassword, JoiUsername } from "./joiTypes";
 
 const registrationData = Joi.object({
   firstName: JoiName().required().messages({
@@ -8,7 +8,6 @@ const registrationData = Joi.object({
   lastName: JoiName().required().messages({
     "any.required": "Missing Last name",
   }),
-  picture: JoiPicture(),
   username: JoiUsername().required().messages({
     "any.required": "Missing username",
   }),

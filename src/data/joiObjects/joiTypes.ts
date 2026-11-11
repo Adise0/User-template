@@ -25,15 +25,5 @@ export const JoiUsername = () =>
       "string.pattern.base": "Username can only have letters, numbers, _ and -",
     });
 
-// https only: this ends up in the frontend as an image, so no http (mixed content) or javascript: links.
-export const JoiPicture = () =>
-  Joi.string()
-    .uri({ scheme: ["https"] })
-    .max(2048)
-    .messages({
-      "string.uri": "Picture must be an https link",
-      "string.uriCustomScheme": "Picture must be an https link",
-    });
-
 // Trimmed first, so a name made only of spaces counts as empty.
 export const JoiName = () => Joi.string().trim().max(nameMaxLength);

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { IncomingMessage, ServerResponse } from "node:http";
-import cors from "cors";
+import cors, { CorsOptions } from "cors";
 import express from "express";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
@@ -22,10 +22,26 @@ const getRequestId = (req: IncomingMessage, res: ServerResponse) => {
   return requestId;
 };
 
+// Which browser origins may call the API: CORS_ORIGINS if set (comma-separated), the frontend
+// otherwise. Read per request, so it's never evaluated before validateEnv has checked the URLs.
+// Postman, curl and server-to-server calls don't send an Origin, so CORS never gets in their way.
+const getAllowedOrigins = (): string[] =>
+  (process.env.CORS_ORIGINS ?? process.env.FRONTEND_URL ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean)
+    .map((url) => new URL(url).origin);
+
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    callback(null, !origin || getAllowedOrigins().includes(origin));
+  },
+};
+
 const app = express(); // Server creation
 
 // Main server middleware chain
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(
   pinoHttp({
     logger,

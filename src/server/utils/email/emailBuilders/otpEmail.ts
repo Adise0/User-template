@@ -157,7 +157,7 @@ const getOtpEmail = (otp: string, otpRevokeToken: string) => `
         <div class="not-you">
           <h2>Wasn't you?</h2>
           <p>Someone may be trying to get into your account. Revoke this code below so it can no longer be used.</p>
-          <a href="${process.env.FRONTEND_URL}/otp/revoke/${otpRevokeToken}" class="revoke-link">Revoke this code</a>
+          <a href="${process.env.FRONTEND_URL}/auth/revokeOtp/${otpRevokeToken}" class="revoke-link">Revoke this code</a>
         </div>
         <div class="debug-note">
           <p>Debug - no frontend yet</p>
