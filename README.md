@@ -32,8 +32,7 @@ The API runs on `http://localhost:4000` by default. To check it's up, open `/hea
 | `npm run lint`           | Runs ESLint (`lint:fix` fixes what it can)       |
 | `npm run format:check`   | Checks formatting with Prettier (`format` fixes) |
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the type-check, lint, format check
-and tests on every push to `master` and every pull request.
+Before committing, run `npx tsc --noEmit`, `npm run lint`, `npm run format:check` and `npm test`.
 
 ## Tests
 
