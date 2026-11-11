@@ -1,10 +1,13 @@
 {
-  "name": "podrida-back",
+  "name": "user-template",
   "version": "1.0.0",
-  "description": "",
-  "main": "build/src/index.js",
+  "description": "REST API template for user accounts: registration, login, sessions, password resets and admin tools",
+  "main": "build/index.js",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "test": "jest --passWithNoTests",
+    "test": "jest",
     "testCovNoWatch": "jest --coverage",
     "testCov": "jest --watchAll --coverage",
     "build": "tsc",
@@ -27,17 +30,43 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/debug": "^4.1.13",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/mongoose": "^5.11.96",
     "@types/node": "^26.6.4",
-    "debug": "^4.4.3",
+    "@types/nodemailer": "^8.0.2",
     "eslint": "^10.12.0",
     "eslint-config-airbnb-extended": "^3.3.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
+    "jest": "^30.5.2",
     "jiti": "^2.7.0",
+    "mongodb-memory-server": "^11.3.0",
     "nodemon": "^3.1.14",
+    "pino-pretty": "^13.2.0",
     "prettier": "^3.9.9",
+    "ts-jest": "^29.4.15",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.1"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.6",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "express-validation": "^4.1.1",
+    "helmet": "^8.3.0",
+    "joi": "^18.2.9",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.11.1",
+    "nodemailer": "^10.0.16",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "prom-client": "^15.1.3"
   }
 }

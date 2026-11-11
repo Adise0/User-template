@@ -1,0 +1,2129 @@
+{
+  "info": {
+    "name": "user-template API",
+    "description": "Every endpoint of the API, in the same structure as the routes.\n\n**Setup** (see postman/README.md in the repo):\n1. Postman Vault > settings: enable **support in Postman scripts**, and allow this collection.\n2. Add vault secrets `loginEmail` (your email, also used to register), `loginPassword` (also the password you register with) and `newPassword` (used by Change password and Reset password), and set the `registerUsername` collection variable.\n3. Run **Auth > Login**. The session token is stored in the vault as `authToken`.\n\nAuthed requests inherit the collection's Bearer auth (`{{vault:authToken}}`). Public ones are set to No Auth. The token is refreshed automatically when it's past half its life, so it only needs a new login after 2 hours idle.\n\nRequests that come from an email link use the `linkToken` variable: paste the last part of the link into it.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{vault:authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Keeps the stored session alive: once the token is past half its life it's swapped for a fresh one.",
+          "// Refreshing keeps the original login time, so it doesn't count as a fresh login.",
+          "const refreshPath = \"/auth/refreshToken\";",
+          "",
+          "if (pm.request.url.getPath() !== refreshPath) {",
+          "  pm.vault",
+          "    .get(\"authToken\")",
+          "    .then((token) => {",
+          "      if (!token) {",
+          "        return;",
+          "      }",
+          "",
+          "      const payload = JSON.parse(atob(token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\")));",
+          "      const secondsLeft = payload.exp - Date.now() / 1000;",
+          "",
+          "      if (secondsLeft > (payload.exp - payload.iat) / 2) {",
+          "        return;",
+          "      }",
+          "",
+          "      pm.sendRequest(",
+          "        {",
+          "          url: pm.collectionVariables.get(\"baseUrl\") + refreshPath,",
+          "          method: \"GET\",",
+          "          header: { Authorization: `Bearer ${token}` },",
+          "        },",
+          "        (error, response) => {",
+          "          if (!error && response.code === 200) {",
+          "            pm.vault.set(\"authToken\", response.json().token);",
+          "          } else {",
+          "            console.warn(\"The session has expired: run Auth > Login again\");",
+          "          }",
+          "        },",
+          "      );",
+          "    })",
+          "    .catch(() => console.warn(\"Can't read the vault: enable vault support in scripts\"));",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"No server error\", () => {",
+          "  pm.expect(pm.response.code).to.be.below(500);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Service status.",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "200 while the API and its database are up, 503 if the database is lost."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{vault:metricsToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["metrics"]
+            },
+            "description": "Prometheus metrics. Only exists when METRICS_TOKEN is set. Put the same value in the vault as `metricsToken`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Registration, login and sessions. Everything here is public unless it says otherwise.",
+      "item": [
+        {
+          "name": "Registration",
+          "description": "Creating and activating an account.",
+          "item": [
+            {
+              "name": "Check keys",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\",\n  \"username\": \"{{registerUsername}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/checkKeys",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "checkKeys"]
+                },
+                "description": "Tells if /register would accept this email and username. At least one is required."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200 or 409\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200, 409]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Register",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Ann\",\n  \"lastName\": \"Smith\",\n  \"username\": \"{{registerUsername}}\",\n  \"email\": \"{{vault:loginEmail}}\",\n  \"password\": \"{{vault:loginPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/register",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "register"]
+                },
+                "description": "Creates a pending account and emails its activation link."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([201]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Activate",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{linkToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/activate",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "activate"]
+                },
+                "description": "Put the token from the activation email in the `linkToken` variable first: it's the last part of the link. Also logs the new account in."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cancel registration",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{linkToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/cancelRegistration",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "cancelRegistration"]
+                },
+                "description": "Put the token from the activation email in the `linkToken` variable first: it's the last part of the link. Deletes the pending account."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Resend activation",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/resendActivation",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "resendActivation"]
+                },
+                "description": "Always answers 202, whether or not the account exists."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 202\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([202]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "description": "Getting a session.",
+          "item": [
+            {
+              "name": "Login",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\",\n  \"password\": \"{{vault:loginPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "login"]
+                },
+                "description": "Stores the session token in the vault. Run this first."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}",
+                      "",
+                      "// With 2FA on, the login answers a challenge instead: Auth > Two-factor > Verify finishes it.",
+                      "if (pm.response.code === 200 && pm.response.json().twoFactorRequired) {",
+                      "  pm.collectionVariables.set(\"twoFactorToken\", pm.response.json().twoFactorToken);",
+                      "  console.log(\"2FA required: put the code in twoFactorCode and run Two-factor > Verify\");",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Request OTP",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/requestOtp",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "requestOtp"]
+                },
+                "description": "Emails a one-time password. Put it in the `otp` variable. Always answers 202."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 202\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([202]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login with OTP",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\",\n  \"password\": \"{{otp}}\",\n  \"withOtp\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "login"]
+                },
+                "description": "Uses the `otp` variable. Stores the session token in the vault."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}",
+                      "",
+                      "// With 2FA on, the login answers a challenge instead: Auth > Two-factor > Verify finishes it.",
+                      "if (pm.response.code === 200 && pm.response.json().twoFactorRequired) {",
+                      "  pm.collectionVariables.set(\"twoFactorToken\", pm.response.json().twoFactorToken);",
+                      "  console.log(\"2FA required: put the code in twoFactorCode and run Two-factor > Verify\");",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Revoke OTP",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{linkToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/revokeOtp",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "revokeOtp"]
+                },
+                "description": "Put the token from the OTP email in the `linkToken` variable first: it's the last part of the link. Uses the \"Revoke this code\" link."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Session",
+          "description": "Uses the stored session.",
+          "item": [
+            {
+              "name": "Refresh token",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/refreshToken",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "refreshToken"]
+                },
+                "description": "Swaps the stored token for a fresh one. The collection already does this on its own."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Logout",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/logout",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "logout"]
+                },
+                "description": "Ends this session only. Clears the stored token."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// This session is over, so the stored token is useless now.",
+                      "if (pm.response.code === 200) {",
+                      "  pm.vault.unset(\"authToken\").catch(() => {});",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sign out everywhere",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/signOutEverywhere",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "signOutEverywhere"]
+                },
+                "description": "Ends every session, this one included. Clears the stored token."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// This session is over, so the stored token is useless now.",
+                      "if (pm.response.code === 200) {",
+                      "  pm.vault.unset(\"authToken\").catch(() => {});",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Password reset",
+          "description": "Getting back into an account by email.",
+          "item": [
+            {
+              "name": "Request password reset",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{vault:loginEmail}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/requestPasswordReset",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "requestPasswordReset"]
+                },
+                "description": "Always answers 202, whether or not the account exists."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 202\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([202]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Reset password",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{linkToken}}\",\n  \"password\": \"{{vault:newPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/resetPassword",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "resetPassword"]
+                },
+                "description": "Put the token from the password reset email in the `linkToken` variable first: it's the last part of the link. Ends every session."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cancel password reset",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{linkToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/cancelPasswordReset",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "cancelPasswordReset"]
+                },
+                "description": "Put the token from the password reset email in the `linkToken` variable first: it's the last part of the link."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Account",
+          "description": "Sensitive actions on the logged in account.",
+          "item": [
+            {
+              "name": "Change password",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"password\": \"{{vault:newPassword}}\",\n  \"signOutOtherSessions\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/changePassword",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "changePassword"]
+                },
+                "description": "Needs a login from the last 5 minutes: run **Auth > Login** first, otherwise it answers `REAUTH_REQUIRED`. Returns a new token, which is stored in the vault."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Request email change",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{newEmail}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/requestEmailChange",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "requestEmailChange"]
+                },
+                "description": "Needs a login from the last 5 minutes: run **Auth > Login** first, otherwise it answers `REAUTH_REQUIRED`. Emails a confirmation link to the new address."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 202\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([202]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Confirm email change",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{linkToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/confirmEmailChange",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "confirmEmailChange"]
+                },
+                "description": "Put the token from the email change confirmation email in the `linkToken` variable first: it's the last part of the link."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete account",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/deleteAccount",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "deleteAccount"]
+                },
+                "description": "Needs a login from the last 5 minutes: run **Auth > Login** first, otherwise it answers `REAUTH_REQUIRED`. Schedules the logged in account for deletion (14 days by default) and signs it out everywhere. Logging in before the date cancels it."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// This session is over, so the stored token is useless now.",
+                      "if (pm.response.code === 200) {",
+                      "  pm.vault.unset(\"authToken\").catch(() => {});",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Email links (debug)",
+          "description": "The GET versions of the email links, so they can be opened without a frontend. They'll be removed before going live.",
+          "item": [
+            {
+              "name": "Activate (link)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/activate/{{linkToken}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "activate", "{{linkToken}}"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cancel registration (link)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/cancelRegistration/{{linkToken}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "cancelRegistration", "{{linkToken}}"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Revoke OTP (link)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/revokeOtp/{{linkToken}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "revokeOtp", "{{linkToken}}"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cancel password reset (link)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/cancelPasswordReset/{{linkToken}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "cancelPasswordReset", "{{linkToken}}"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Two-factor",
+          "description": "Authenticator app codes. Setup answers the secret (add it to an app by hand, or turn `otpauthUrl` into a QR code), and Enable turns 2FA on with a code from the app. From then on Login answers a challenge, and Verify trades it plus a code for the session. Put the current code (or a backup code) in `twoFactorCode`.",
+          "item": [
+            {
+              "name": "Setup",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/setup",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "setup"]
+                },
+                "description": "Needs a login from the last 5 minutes. Answers the secret to add to the authenticator app."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enable",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/enable",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "enable"]
+                },
+                "description": "Needs a login from the last 5 minutes. Answers the backup codes, which are only shown this once: keep them."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Verify (login step 2)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{twoFactorToken}}\",\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/verify",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "verify"]
+                },
+                "description": "Uses the `twoFactorToken` Login left. Stores the session token in the vault."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "New backup codes",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/backupCodes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "backupCodes"]
+                },
+                "description": "Needs a login from the last 5 minutes and a code. Replaces every backup code."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Disable",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/disable",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "disable"]
+                },
+                "description": "Needs a login from the last 5 minutes and a code (authenticator or backup)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "OAuth",
+          "description": "Sign in with Google (Apple works the same way, with `apple` in the path and no PKCE). Run **Authorization URL**, open the `url` it answers in a browser and sign in. Google then sends you to `FRONTEND_URL/auth/oauth/google/callback?code=...`. Without a frontend that page won't load, so copy the `code` from the address bar into `oauthCode` right away (it expires within minutes) and run **Login**. The provider has to be configured in the .env.",
+          "item": [
+            {
+              "name": "Providers",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/providers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "providers"]
+                },
+                "description": "The configured providers, and whether each one uses PKCE."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Authorization URL (Google)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/authorizationUrl?state={{oauthState}}&nonce={{oauthNonce}}&codeChallenge={{oauthCodeChallenge}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "authorizationUrl"],
+                  "query": [
+                    {
+                      "key": "state",
+                      "value": "{{oauthState}}"
+                    },
+                    {
+                      "key": "nonce",
+                      "value": "{{oauthNonce}}"
+                    },
+                    {
+                      "key": "codeChallenge",
+                      "value": "{{oauthCodeChallenge}}"
+                    }
+                  ]
+                },
+                "description": "Generates the state, nonce and PKCE values, and answers the Google sign-in URL to open."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// What a frontend does before each sign-in: a fresh state and nonce, and a PKCE verifier",
+                      "// with its SHA-256 challenge. Kept in collection variables for Login.",
+                      "const random = () => CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Base64url);",
+                      "pm.collectionVariables.set(\"oauthState\", random());",
+                      "pm.collectionVariables.set(\"oauthNonce\", random());",
+                      "const verifier = random();",
+                      "pm.collectionVariables.set(\"oauthCodeVerifier\", verifier);",
+                      "pm.collectionVariables.set(\"oauthCodeChallenge\", CryptoJS.SHA256(verifier).toString(CryptoJS.enc.Base64url));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "console.log(\"Open this in a browser:\", pm.response.json().url);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login (Google)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{oauthCode}}\",\n  \"nonce\": \"{{oauthNonce}}\",\n  \"codeVerifier\": \"{{oauthCodeVerifier}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "login"]
+                },
+                "description": "Answers a session (stored in the vault), a 2FA challenge, or, on a first sign-in, a signup token (stored in `oauthSignupToken`) for **Complete signup**."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}",
+                      "",
+                      "// With 2FA on, the login answers a challenge instead: Auth > Two-factor > Verify finishes it.",
+                      "if (pm.response.code === 200 && pm.response.json().twoFactorRequired) {",
+                      "  pm.collectionVariables.set(\"twoFactorToken\", pm.response.json().twoFactorToken);",
+                      "  console.log(\"2FA required: put the code in twoFactorCode and run Two-factor > Verify\");",
+                      "}",
+                      "",
+                      "if (pm.response.code === 200 && pm.response.json().signupRequired) {",
+                      "  pm.collectionVariables.set(\"oauthSignupToken\", pm.response.json().signupToken);",
+                      "  console.log(\"First sign-in: set registerUsername and run Complete signup\");",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Complete signup",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{oauthSignupToken}}\",\n  \"username\": \"{{registerUsername}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/completeSignup",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "completeSignup"]
+                },
+                "description": "First sign-in only: creates the account with the username in `registerUsername`. Stores the session token in the vault."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Link Google",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{oauthCode}}\",\n  \"nonce\": \"{{oauthNonce}}\",\n  \"codeVerifier\": \"{{oauthCodeVerifier}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/link",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "link"]
+                },
+                "description": "Needs a login from the last 5 minutes. Get a fresh `oauthCode` first, like for Login."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Unlink Google",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/link",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "link"]
+                },
+                "description": "Needs a login from the last 5 minutes."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "The logged in user.",
+      "item": [
+        {
+          "name": "Get my user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/myUser",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "myUser"]
+            },
+            "description": "The profile and role, plus `hasPassword`, `linkedProviders` and `twoFactorEnabled` for a settings page."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update my profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Ann\",\n  \"lastName\": \"Smith\",\n  \"username\": \"new_user\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/myUser",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "myUser"]
+            },
+            "description": "Only the fields sent change, at least one is required. The email can't be changed here."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Needs an ADMIN or SUPERUSER account. Requests on a user use the `targetUserId` variable, which **List users** fills in. Nobody can act on themselves, admins only on regular users, and superusers can't be targeted.",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Start of an email or username",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "USER",
+                  "description": "USER, ADMIN or SUPERUSER",
+                  "disabled": true
+                },
+                {
+                  "key": "isDisabled",
+                  "value": "true",
+                  "disabled": true
+                },
+                {
+                  "key": "isActivated",
+                  "value": "true",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Paginated, newest first. Saves the first user that isn't you as `targetUserId`, if it's empty."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 && !pm.collectionVariables.get(\"targetUserId\")) {",
+                  "  pm.vault.get(\"authToken\").then((token) => {",
+                  "    const myId = token ? JSON.parse(atob(token.split(\".\")[1].replace(/-/g, \"+\").replace(/_/g, \"/\"))).id : null;",
+                  "    const target = pm.response.json().users.find((user) => user.id !== myId);",
+                  "",
+                  "    if (target) {",
+                  "      pm.collectionVariables.set(\"targetUserId\", target.id);",
+                  "      console.log(`targetUserId set to ${target.id}`);",
+                  "    }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"renamed_user\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            },
+            "description": "Same fields as Update my profile."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete user",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            },
+            "description": "Needs a login from the last 5 minutes: run **Auth > Login** first, otherwise it answers `REAUTH_REQUIRED`. Emails the user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
+                  "",
+                  "// The target is gone, so clear it. Admin > List users fills it in again.",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.unset(\"targetUserId\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disable user",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId/disable",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId", "disable"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            },
+            "description": "Ends their sessions and blocks login. Emails the user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enable user",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId", "enable"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            },
+            "description": "Emails the user. Their old sessions don't come back."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign out user",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId/signOut",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId", "signOut"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            },
+            "description": "Ends every session of the user. They can log back in."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Force password reset",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId/forcePasswordReset",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId", "forcePasswordReset"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            },
+            "description": "Ends their sessions and stops the password working until they use the emailed reset link."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/:userId/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", ":userId", "role"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{targetUserId}}"
+                }
+              ]
+            },
+            "description": "SUPERUSER only. Needs a login from the last 5 minutes: run **Auth > Login** first, otherwise it answers `REAUTH_REQUIRED`. `role` is USER or ADMIN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset 2FA",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{targetUserId}}/resetTwoFactor",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{targetUserId}}", "resetTwoFactor"]
+            },
+            "description": "Turns off the user's 2FA, for someone who lost both their authenticator and their backup codes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "registerUsername",
+      "value": "",
+      "description": "Username for the account you register."
+    },
+    {
+      "key": "newEmail",
+      "value": "",
+      "description": "Another real address, for Account > Request email change. Current value only."
+    },
+    {
+      "key": "linkToken",
+      "value": "",
+      "description": "Token from the last email link (activation, reset, email change...)."
+    },
+    {
+      "key": "otp",
+      "value": "",
+      "description": "One-time password from the OTP email."
+    },
+    {
+      "key": "targetUserId",
+      "value": "",
+      "description": "User the admin requests act on. Admin > List users fills it in."
+    },
+    {
+      "key": "twoFactorCode",
+      "value": "",
+      "description": "Current code from the authenticator app, or a backup code."
+    },
+    {
+      "key": "twoFactorToken",
+      "value": "",
+      "description": "Challenge from a login with 2FA on. Login fills it in."
+    },
+    {
+      "key": "oauthCode",
+      "value": "",
+      "description": "The code from the provider's redirect. Current value only."
+    },
+    {
+      "key": "oauthState",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthNonce",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthCodeVerifier",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthCodeChallenge",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthSignupToken",
+      "value": "",
+      "description": "From a first OAuth sign-in. Login fills it in."
+    }
+  ]
+}
