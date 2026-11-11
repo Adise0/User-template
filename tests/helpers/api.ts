@@ -81,12 +81,24 @@ export const call = async (method: string, url: string, options: CallOptions = {
 
   const text = await response.text();
 
+  const isJson = response.headers.get("content-type")?.includes("json");
+
   return {
     status: response.status,
     headers: response.headers,
-    json: text ? JSON.parse(text) : {},
+    json: isJson && text ? JSON.parse(text) : {},
+    text,
   };
 };
+
+// A plain HTML form post, like Apple's callback or a cross-site form. Redirects aren't followed.
+export const postForm = (url: string, form: Record<string, string>) =>
+  fetch(baseUrl + url, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": newIp() },
+    body: new URLSearchParams(form),
+    redirect: "manual",
+  });
 
 export const secondsAgo = (seconds: number) => new Date(Date.now() - seconds * 1000);
 
@@ -114,7 +126,8 @@ export const waitForEmail = async (to: string, subjectPart = "") => {
 };
 
 // For checking an email did NOT go out, or that background work has finished.
-export const settle = () => wait(150);
+// Has to outlast a bcrypt hash at the configured saltRounds (an OTP is hashed before it's sent).
+export const settle = () => wait(1000);
 
 export const tokenFromLink = (html: string, path: string) => html.split(path)[1].split('"')[0];
 

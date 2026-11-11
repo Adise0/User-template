@@ -5,15 +5,12 @@ import Users from "../../../database/models/Users";
 import LoginData from "../../../types/authTypes/loginData";
 import {
   getInvalidPasswordError,
-  getNotYetActivatedError,
-  getPasswordResetRequiredError,
-  getUserDisabledError,
   getUserNotFoundForUsernameOrEmailError,
 } from "../../../data/errorObjects/userErrors";
 import { otpMaxAttempts, saltRounds } from "../../../data/serverConfig/server-config";
 import findUserByEmailOrUsername from "../../utils/auth/findUserByEmailOrUsername";
 import clearOtp from "../../utils/auth/clearOtp";
-import sendSecurityNotice from "../../utils/email/sendSecurityNotice";
+import admitToLogin from "../../utils/auth/admitToLogin";
 
 // Hash of a random string nobody knows. When there's no real hash to compare against (unknown
 // user, no password set), the password is still compared against this one so the response takes
@@ -108,42 +105,12 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
     }
 
     // Only once the credentials are proven is it safe to reveal anything about the account's state.
+    const loginError = await admitToLogin(foundUser, res);
 
-    // If the user is disabled write the error and go next.
-    if (foundUser.isDisabled) {
-      const userDisabledError = getUserDisabledError(foundUser.id);
-      next(userDisabledError);
+    if (loginError) {
+      next(loginError);
       return;
     }
-
-    // If the login is correct but the user is not yet activated write the error and go next
-    if (!foundUser.activatedAt) {
-      const notActiveError = getNotYetActivatedError(foundUser.id);
-      next(notActiveError);
-      return;
-    }
-
-    // An admin forced a password reset, so the password may be compromised: the only way back in is
-    // the link sent to the account's email, which clears this.
-    if (foundUser.resetPasswordOnLogin) {
-      next(getPasswordResetRequiredError(foundUser.id));
-      return;
-    }
-
-    // The owner deleted the account but is back within the grace period: logging in cancels it.
-    if (foundUser.scheduledDeletionAt) {
-      await Users.updateOne({ _id: foundUser._id }, { $unset: { scheduledDeletionAt: "" } });
-
-      sendSecurityNotice(
-        foundUser.credentials.email,
-        "Your account deletion was cancelled",
-        "You logged in, so your account won't be deleted. If this wasn't you, reset your password right away.",
-      );
-    }
-
-    // If every check has passed write the user id and token version in the res.locals object and go next.
-    res.locals.userId = foundUser.id;
-    res.locals.tokenVersion = foundUser.tokenVersion;
 
     next();
   } catch (error) {

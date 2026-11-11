@@ -32,8 +32,15 @@ Before each request, a script checks the stored token. Once it's past half its l
 it for a fresh one, so the session lasts as long as you keep using it. After 2 hours without a
 request it expires, and you need to run Login again.
 
-Changing your password, changing your email, deleting your account, deleting a user and changing a
-role need a login from the last 5 minutes. A refresh doesn't count, so run Login right before them.
+Some requests need a login from the last 5 minutes, and a refresh doesn't count, so run Login right
+before them:
+
+- **Auth > Account**: change password, request email change, delete account.
+- **Auth > Two-factor**: setup, enable, new backup codes, disable.
+- **Auth > OAuth**: link and unlink.
+- **Admin**: delete user and change role.
+
+Otherwise they answer `REAUTH_REQUIRED`.
 
 ## Variables
 
@@ -45,9 +52,27 @@ role need a login from the last 5 minutes. A refresh doesn't count, so run Login
 | `linkToken`        | Token from an email link: paste the last part of the link           |
 | `otp`              | One-time password from the OTP email                                |
 | `targetUserId`     | User the admin requests act on. **Admin > List users** fills it in. |
+| `twoFactorCode`    | Current authenticator code, or a backup code                        |
+| `twoFactorToken`   | 2FA challenge, filled in by Login when 2FA is on                    |
+| `oauthCode`        | The `code` from the provider's redirect, see **Auth > OAuth**       |
+| `oauth*` (others)  | Filled in by **Auth > OAuth > Authorization URL** and Login         |
+
+## Two-factor and OAuth
+
+With 2FA on, **Login** stores a challenge in `twoFactorToken` instead of a session. Put the code
+from your app in `twoFactorCode` and run **Auth > Two-factor > Verify**.
+
+OAuth needs a browser for the provider's sign-in page. The steps are in the **Auth > OAuth**
+folder's description.
+
+For **Health > Metrics**, add your `METRICS_TOKEN` to the Vault as `metricsToken`.
 
 ## Admin requests
 
 They need an `ADMIN` or `SUPERUSER` account, so register a second account and promote one of them
-(see the main README). **Delete user** clears `targetUserId`, and **List users** fills it in again. Nobody can act on themselves, admins can only act on
-regular users, and superusers can't be targeted at all.
+(see the main README). **Change role** needs a `SUPERUSER`.
+
+When `targetUserId` is empty, **List users** fills it in with the first user it returns that isn't
+you. **Delete user** clears it.
+Nobody can act on themselves, admins can only act on regular users, and superusers can't be
+targeted at all.

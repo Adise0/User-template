@@ -2,6 +2,7 @@ import express from "express";
 import login from "../middlewares/auth/login";
 import sendToken from "../controllers/auth/sendToken";
 import tokenValidator from "../middlewares/auth/tokenValidator";
+import twoFactorChallenge from "../middlewares/auth/twoFactorChallenge";
 import {
   changePasswordDataValidator,
   emailChangeDataValidator,
@@ -64,6 +65,7 @@ authRouter.all(
   loginDataValidator,
   accountLoginRateLimiter,
   login,
+  twoFactorChallenge,
   sendToken,
 );
 

@@ -5,6 +5,8 @@ import {
   emailTimeoutInSeconds,
 } from "../../../data/serverConfig/server-config";
 import logger from "../logger";
+import { emailsSent } from "../metrics";
+import htmlToText from "./htmlToText";
 import EmailData from "./types";
 
 const emailTimeoutInMs = emailTimeoutInSeconds * 1000;
@@ -49,13 +51,15 @@ const sendEmail = async (emailData: EmailData, attempt = 1): Promise<void> => {
   const { internalEmailName, ...email } = emailData;
 
   try {
-    await transporter.sendMail({ from, ...email });
+    await transporter.sendMail({ from, ...email, text: htmlToText(email.html) });
+    emailsSent.inc({ result: "sent" });
   } catch (error) {
     const isLastAttempt = attempt >= emailMaxAttempts;
 
     logger.warn({ err: error, attempt, internalEmailName }, "Failed to send email");
 
     if (isLastAttempt || isPermanentFailure(error)) {
+      emailsSent.inc({ result: "failed" });
       throw error;
     }
 

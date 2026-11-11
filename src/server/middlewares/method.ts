@@ -17,6 +17,9 @@ export enum Methods {
 const method =
   (...methods: Methods[]) =>
   (req: Request, res: Response, next: NextFunction) => {
+    // Every route starts with this guard, so it's where the route pattern is known for the metrics.
+    res.locals.metricsRoute = `${req.baseUrl}${req.route?.path ?? ""}`;
+
     // HEAD is a GET without the response body, so anything that answers GET answers it too.
     const allowedMethods = methods.includes(Methods.GET) ? [...methods, Methods.HEAD] : methods;
 

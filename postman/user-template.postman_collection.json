@@ -104,6 +104,42 @@
               }
             }
           ]
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{vault:metricsToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["metrics"]
+            },
+            "description": "Prometheus metrics. Only exists when METRICS_TOKEN is set. Put the same value in the vault as `metricsToken`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -389,6 +425,12 @@
                       "    .set(\"authToken\", pm.response.json().token)",
                       "    .then(() => console.log(\"Session token saved to the vault\"))",
                       "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}",
+                      "",
+                      "// With 2FA on, the login answers a challenge instead: Auth > Two-factor > Verify finishes it.",
+                      "if (pm.response.code === 200 && pm.response.json().twoFactorRequired) {",
+                      "  pm.collectionVariables.set(\"twoFactorToken\", pm.response.json().twoFactorToken);",
+                      "  console.log(\"2FA required: put the code in twoFactorCode and run Two-factor > Verify\");",
                       "}"
                     ]
                   }
@@ -483,6 +525,12 @@
                       "    .set(\"authToken\", pm.response.json().token)",
                       "    .then(() => console.log(\"Session token saved to the vault\"))",
                       "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}",
+                      "",
+                      "// With 2FA on, the login answers a challenge instead: Auth > Two-factor > Verify finishes it.",
+                      "if (pm.response.code === 200 && pm.response.json().twoFactorRequired) {",
+                      "  pm.collectionVariables.set(\"twoFactorToken\", pm.response.json().twoFactorToken);",
+                      "  console.log(\"2FA required: put the code in twoFactorCode and run Two-factor > Verify\");",
                       "}"
                     ]
                   }
@@ -1064,6 +1112,483 @@
               ]
             }
           ]
+        },
+        {
+          "name": "Two-factor",
+          "description": "Authenticator app codes. Setup answers the secret (add it to an app by hand, or turn `otpauthUrl` into a QR code), and Enable turns 2FA on with a code from the app. From then on Login answers a challenge, and Verify trades it plus a code for the session. Put the current code (or a backup code) in `twoFactorCode`.",
+          "item": [
+            {
+              "name": "Setup",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/setup",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "setup"]
+                },
+                "description": "Needs a login from the last 5 minutes. Answers the secret to add to the authenticator app."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enable",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/enable",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "enable"]
+                },
+                "description": "Needs a login from the last 5 minutes. Answers the backup codes, which are only shown this once: keep them."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Verify (login step 2)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{twoFactorToken}}\",\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/verify",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "verify"]
+                },
+                "description": "Uses the `twoFactorToken` Login left. Stores the session token in the vault."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "New backup codes",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/backupCodes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "backupCodes"]
+                },
+                "description": "Needs a login from the last 5 minutes and a code. Replaces every backup code."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Disable",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{twoFactorCode}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/twoFactor/disable",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "twoFactor", "disable"]
+                },
+                "description": "Needs a login from the last 5 minutes and a code (authenticator or backup)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "OAuth",
+          "description": "Sign in with Google (Apple works the same way, with `apple` in the path and no PKCE). Run **Authorization URL**, open the `url` it answers in a browser and sign in. Google then sends you to `FRONTEND_URL/auth/oauth/google/callback?code=...`. Without a frontend that page won't load, so copy the `code` from the address bar into `oauthCode` right away (it expires within minutes) and run **Login**. The provider has to be configured in the .env.",
+          "item": [
+            {
+              "name": "Providers",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/providers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "providers"]
+                },
+                "description": "The configured providers, and whether each one uses PKCE."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Authorization URL (Google)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/authorizationUrl?state={{oauthState}}&nonce={{oauthNonce}}&codeChallenge={{oauthCodeChallenge}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "authorizationUrl"],
+                  "query": [
+                    {
+                      "key": "state",
+                      "value": "{{oauthState}}"
+                    },
+                    {
+                      "key": "nonce",
+                      "value": "{{oauthNonce}}"
+                    },
+                    {
+                      "key": "codeChallenge",
+                      "value": "{{oauthCodeChallenge}}"
+                    }
+                  ]
+                },
+                "description": "Generates the state, nonce and PKCE values, and answers the Google sign-in URL to open."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// What a frontend does before each sign-in: a fresh state and nonce, and a PKCE verifier",
+                      "// with its SHA-256 challenge. Kept in collection variables for Login.",
+                      "const random = () => CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Base64url);",
+                      "pm.collectionVariables.set(\"oauthState\", random());",
+                      "pm.collectionVariables.set(\"oauthNonce\", random());",
+                      "const verifier = random();",
+                      "pm.collectionVariables.set(\"oauthCodeVerifier\", verifier);",
+                      "pm.collectionVariables.set(\"oauthCodeChallenge\", CryptoJS.SHA256(verifier).toString(CryptoJS.enc.Base64url));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "console.log(\"Open this in a browser:\", pm.response.json().url);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login (Google)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{oauthCode}}\",\n  \"nonce\": \"{{oauthNonce}}\",\n  \"codeVerifier\": \"{{oauthCodeVerifier}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "login"]
+                },
+                "description": "Answers a session (stored in the vault), a 2FA challenge, or, on a first sign-in, a signup token (stored in `oauthSignupToken`) for **Complete signup**."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}",
+                      "",
+                      "// With 2FA on, the login answers a challenge instead: Auth > Two-factor > Verify finishes it.",
+                      "if (pm.response.code === 200 && pm.response.json().twoFactorRequired) {",
+                      "  pm.collectionVariables.set(\"twoFactorToken\", pm.response.json().twoFactorToken);",
+                      "  console.log(\"2FA required: put the code in twoFactorCode and run Two-factor > Verify\");",
+                      "}",
+                      "",
+                      "if (pm.response.code === 200 && pm.response.json().signupRequired) {",
+                      "  pm.collectionVariables.set(\"oauthSignupToken\", pm.response.json().signupToken);",
+                      "  console.log(\"First sign-in: set registerUsername and run Complete signup\");",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Complete signup",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{oauthSignupToken}}\",\n  \"username\": \"{{registerUsername}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/completeSignup",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "completeSignup"]
+                },
+                "description": "First sign-in only: creates the account with the username in `registerUsername`. Stores the session token in the vault."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});",
+                      "",
+                      "// Store the new session token in the vault, every authed request uses it from there.",
+                      "if (pm.response.code === 200 && pm.response.json().token) {",
+                      "  pm.vault",
+                      "    .set(\"authToken\", pm.response.json().token)",
+                      "    .then(() => console.log(\"Session token saved to the vault\"))",
+                      "    .catch(() => console.warn(\"Couldn't save the token: enable vault support in scripts\"));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Link Google",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{oauthCode}}\",\n  \"nonce\": \"{{oauthNonce}}\",\n  \"codeVerifier\": \"{{oauthCodeVerifier}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/link",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "link"]
+                },
+                "description": "Needs a login from the last 5 minutes. Get a fresh `oauthCode` first, like for Login."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Unlink Google",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/oauth/google/link",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "oauth", "google", "link"]
+                },
+                "description": "Needs a login from the last 5 minutes."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => {",
+                      "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -1080,7 +1605,8 @@
               "raw": "{{baseUrl}}/users/myUser",
               "host": ["{{baseUrl}}"],
               "path": ["users", "myUser"]
-            }
+            },
+            "description": "The profile and role, plus `hasPassword`, `linkedProviders` and `twoFactorEnabled` for a settings page."
           },
           "event": [
             {
@@ -1499,6 +2025,32 @@
               }
             }
           ]
+        },
+        {
+          "name": "Reset 2FA",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{targetUserId}}/resetTwoFactor",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{targetUserId}}", "resetTwoFactor"]
+            },
+            "description": "Turns off the user's 2FA, for someone who lost both their authenticator and their backup codes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
@@ -1532,6 +2084,46 @@
       "key": "targetUserId",
       "value": "",
       "description": "User the admin requests act on. Admin > List users fills it in."
+    },
+    {
+      "key": "twoFactorCode",
+      "value": "",
+      "description": "Current code from the authenticator app, or a backup code."
+    },
+    {
+      "key": "twoFactorToken",
+      "value": "",
+      "description": "Challenge from a login with 2FA on. Login fills it in."
+    },
+    {
+      "key": "oauthCode",
+      "value": "",
+      "description": "The code from the provider's redirect. Current value only."
+    },
+    {
+      "key": "oauthState",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthNonce",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthCodeVerifier",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthCodeChallenge",
+      "value": "",
+      "description": "Filled in by Authorization URL."
+    },
+    {
+      "key": "oauthSignupToken",
+      "value": "",
+      "description": "From a first OAuth sign-in. Login fills it in."
     }
   ]
 }

@@ -1,5 +1,8 @@
 // This file contains the basic configuration parameters of the server
 
+// The product's name, as users see it: in every email, and next to the code in authenticator apps.
+export const appName = "user-template";
+
 // USER SETTINGS
 
 // Session settings
@@ -55,6 +58,18 @@ export const freshAuthMaxAgeInMinutes = 5;
 // Account deletion (by the user). The account is signed out and kept for this long, logging back in
 // cancels the deletion, and MongoDB removes it once the time is up. null deletes it right away.
 export const accountDeletionGraceInDays: number | null = 14;
+
+// OAUTH (providers are switched on by their variables in the .env, see .env.example)
+// How long a first-time OAuth user has to pick a username before signing in again.
+export const oauthSignupExpirationInMinutes = 15;
+
+// TWO-FACTOR AUTHENTICATION (authenticator apps)
+// false removes the 2FA endpoints (404) and login never asks for a code, whatever the users had set.
+export const twoFactorAuthEnabled = true;
+export const twoFactorIssuer = appName; // The name authenticator apps show next to the code.
+export const twoFactorChallengeExpirationInMinutes = 5; // Time to type the code after the password.
+export const twoFactorMaxAttempts = 5; // Wrong codes per login before it has to start over.
+export const twoFactorBackupCodeCount = 10;
 
 // EMAIL DELIVERY
 export const emailMaxAttempts = 3; // Tries per email before giving up.

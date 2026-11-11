@@ -72,11 +72,17 @@ describe("register", () => {
     expect(json.fields).toEqual({ username: "TAKEN" });
   });
 
-  test("parallel registrations: one wins, the rest get a 409, never a 500", async () => {
+  // The losers get a 409 if they raced the winner's insert, or the retry cooldown's 429 if the
+  // winner's pending account was already there. Which one depends on timing, a 500 never happens.
+  test("parallel registrations: one wins, the rest are refused, never a 500", async () => {
     const results = await Promise.all([register(), register(), register(), register()]);
-    const statuses = results.map(({ status }) => status).sort();
+    const statuses = results.map(({ status }) => status);
 
-    expect(statuses).toEqual([201, 409, 409, 409]);
+    expect(statuses.filter((status) => status === 201)).toHaveLength(1);
+    expect(statuses.filter((status) => status !== 201).every((s) => [409, 429].includes(s))).toBe(
+      true,
+    );
+    expect(await Users.countDocuments()).toBe(1);
   });
 
   test.each([

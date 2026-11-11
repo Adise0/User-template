@@ -6,6 +6,8 @@ export enum TokenPurpose {
   otpRevoke = "OTPREVOKE",
   passwordReset = "PASSWORDRESET",
   emailChange = "EMAILCHANGE",
+  oauthSignup = "OAUTHSIGNUP",
+  twoFactorChallenge = "TWOFACTORCHALLENGE",
 }
 
 interface TokenPayload {
@@ -24,8 +26,31 @@ interface TokenPayload {
 // The id identifies the user and the purpose says which kind of link it is. Each endpoint still compares the
 // raw token against its own stored field, so only the latest link of each kind is valid.
 export interface SignedIdTokenPayload {
-  purpose: Exclude<TokenPurpose, TokenPurpose.session>;
+  purpose: Exclude<
+    TokenPurpose,
+    TokenPurpose.session | TokenPurpose.oauthSignup | TokenPurpose.twoFactorChallenge
+  >;
   id: string;
+}
+
+// Handed out on a first OAuth sign-in: the provider proved who the user is, but there's no account
+// yet. Carries what the provider said, so completeSignup can create the account once the user has
+// picked a username. Signed, so none of it can be changed on the way.
+export interface OAuthSignupTokenPayload {
+  purpose: TokenPurpose.oauthSignup;
+  provider: string;
+  providerId: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+// Handed out instead of a session when the credentials were right but the account has 2FA on.
+// challengeId ties it to the attempt counter stored on the user, so a new login starts it over.
+export interface TwoFactorChallengeTokenPayload {
+  purpose: TokenPurpose.twoFactorChallenge;
+  id: string;
+  challengeId: string;
 }
 
 export default TokenPayload;

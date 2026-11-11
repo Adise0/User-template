@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import errorsHandler from "./middlewares/errors/errorsHandler";
 import notFoundError from "./middlewares/errors/notFoundError";
+import metrics from "./middlewares/metrics";
 import normalizeBody from "./middlewares/normalizeBody";
 import mainRouter from "./routers";
 import { endpoints } from "../data/serverConfig/endpoints";
@@ -46,7 +47,10 @@ app.use(
   pinoHttp({
     logger,
     genReqId: getRequestId,
-    autoLogging: { ignore: (req) => req.url === endpoints.health.path },
+    // Uptime monitors and scrapers hit these every few seconds, they'd drown everything else.
+    autoLogging: {
+      ignore: (req) => req.url === endpoints.health.path || req.url === endpoints.metrics.path,
+    },
     // Only what's needed: no headers, so the Authorization header never reaches the logs.
     serializers: {
       req: (req) => ({ id: req.id, method: req.method, url: maskTokensInUrl(req.url) }),
@@ -54,6 +58,7 @@ app.use(
     },
   }),
 );
+app.use(metrics);
 app.use(helmet());
 app.use(express.json());
 app.use(normalizeBody);

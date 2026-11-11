@@ -20,13 +20,15 @@ const loginAdmin = () => loginAs({ role: "ADMIN" });
 const loginSuperuser = () => loginAs({ role: "SUPERUSER" });
 const userUrl = (id: string, action = "") => `/admin/users/${id}${action}`;
 
-const actions: [string, string, string, unknown?][] = [
-  ["disable", "POST", "/disable"],
-  ["enable", "POST", "/enable"],
-  ["sign out", "POST", "/signOut"],
-  ["force a reset", "POST", "/forcePasswordReset"],
+// Every row needs all 4 values: with fewer, Jest takes the test function's last parameter for a
+// done() callback and waits for it until the test times out.
+const actions: [string, string, string, unknown][] = [
+  ["disable", "POST", "/disable", undefined],
+  ["enable", "POST", "/enable", undefined],
+  ["sign out", "POST", "/signOut", undefined],
+  ["force a reset", "POST", "/forcePasswordReset", undefined],
   ["edit", "PATCH", "", { firstName: "Changed" }],
-  ["delete", "DELETE", ""],
+  ["delete", "DELETE", "", undefined],
 ];
 
 describe("access", () => {

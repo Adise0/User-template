@@ -99,6 +99,30 @@ const UserSchema = new Schema<DatabaseUserData>(
       expires: 0,
     },
 
+    // Sign-in providers (Google, Apple...) linked to the account. providerId is the provider's own
+    // id for the user, which never changes, unlike the email.
+    oauthAccounts: [
+      {
+        _id: false,
+        provider: { type: String, required: true },
+        providerId: { type: String, required: true },
+        email: String,
+        linkedAt: { type: Date, required: true },
+      },
+    ],
+
+    // Time-based one-time codes (authenticator apps). On once enabledAt is set.
+    twoFactor: {
+      _id: false,
+      secret: String,
+      pendingSecret: String,
+      enabledAt: Date,
+      backupCodes: { type: [String], default: [] },
+      lastUsedStep: Number,
+      challengeId: String,
+      challengeAttempts: { type: Number, default: 0 },
+    },
+
     // Stamped into every session token; bumping it invalidates all previously issued sessions.
     tokenVersion: {
       type: Number,
@@ -132,9 +156,17 @@ const UserSchema = new Schema<DatabaseUserData>(
         delete json.emailChangeToken;
         delete json.emailChangeLastSentAt;
         delete json.revokedSessions;
+        delete json.twoFactor;
       },
     },
   },
+);
+
+// One provider account can only ever be linked to one user. Partial, so the many users without any
+// linked account don't all clash on a missing value.
+UserSchema.index(
+  { "oauthAccounts.provider": 1, "oauthAccounts.providerId": 1 },
+  { unique: true, partialFilterExpression: { "oauthAccounts.providerId": { $exists: true } } },
 );
 
 const Users = model<DatabaseUserData>("Users", UserSchema, "users");

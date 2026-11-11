@@ -8,6 +8,7 @@ import enableUser from "../controllers/admin/enableUser";
 import forcePasswordReset from "../controllers/admin/forcePasswordReset";
 import getUser from "../controllers/admin/getUser";
 import getUsers from "../controllers/admin/getUsers";
+import resetTwoFactor from "../controllers/admin/resetTwoFactor";
 import signOutUser from "../controllers/admin/signOutUser";
 import updateUser from "../controllers/admin/updateUser";
 import freshAuthValidator from "../middlewares/auth/freshAuthValidator";
@@ -72,6 +73,14 @@ adminRouter.all(
   getUserDataValidator,
   manageableUserValidator,
   forcePasswordReset,
+);
+
+adminRouter.all(
+  routerEndpoints.resetTwoFactor,
+  method(Methods.POST),
+  getUserDataValidator,
+  manageableUserValidator,
+  resetTwoFactor,
 );
 
 adminRouter.all(

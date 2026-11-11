@@ -4,6 +4,7 @@ interface SentEmail {
   to: string;
   subject: string;
   html: string;
+  text?: string;
 }
 
 export const mailbox = {

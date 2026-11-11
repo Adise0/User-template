@@ -39,6 +39,20 @@ export enum ErrorCode {
 
   // Email change
   EMAIL_CHANGE_EMAIL_FAILED = "EMAIL_CHANGE_EMAIL_FAILED",
+
+  // OAuth (sign in with Google, Apple...)
+  OAUTH_PROVIDER_UNAVAILABLE = "OAUTH_PROVIDER_UNAVAILABLE", // Unknown provider, or not configured on this server.
+  OAUTH_FAILED = "OAUTH_FAILED", // The provider refused the code, or its answer didn't check out: start over.
+  OAUTH_EMAIL_NOT_VERIFIED = "OAUTH_EMAIL_NOT_VERIFIED", // The provider hasn't verified the account's email.
+  OAUTH_EMAIL_IN_USE = "OAUTH_EMAIL_IN_USE", // An account already has this email: log in to it and link the provider from there.
+  OAUTH_ALREADY_LINKED = "OAUTH_ALREADY_LINKED", // This provider account (or this provider) is already linked.
+  OAUTH_NOT_LINKED = "OAUTH_NOT_LINKED",
+
+  // Two-factor authentication
+  TWO_FACTOR_INVALID_CODE = "TWO_FACTOR_INVALID_CODE",
+  TWO_FACTOR_ALREADY_ENABLED = "TWO_FACTOR_ALREADY_ENABLED",
+  TWO_FACTOR_NOT_ENABLED = "TWO_FACTOR_NOT_ENABLED",
+  TWO_FACTOR_SETUP_NOT_STARTED = "TWO_FACTOR_SETUP_NOT_STARTED", // Call setup first, then enable.
 }
 
 // What's wrong with a single field, used in the "fields" object of an error response

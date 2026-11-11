@@ -1,6 +1,7 @@
 /* eslint-disable n/prefer-promises/dns */
 
 import { setServers } from "node:dns";
+import os from "node:os";
 import mongoose from "mongoose";
 import logger from "../server/utils/logger";
 
@@ -21,7 +22,9 @@ const connectToDB = (connectionString: string | undefined): Promise<void> =>
 
     logger.info("Connecting to database...");
     mongoose
-      .connect(connectionString)
+      // Handing the driver "os" saves it a dynamic import(), which fails silently where it isn't
+      // supported (Jest, some bundlers) and leaves the handshake without the metadata MongoDB requires.
+      .connect(connectionString, { runtimeAdapters: { os } })
       .then(() => {
         logger.info("Connected to database");
         resolve(); // Resolve on correct connection

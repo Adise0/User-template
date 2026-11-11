@@ -1,14 +1,46 @@
 # Security settings
 
 The template's defaults assume a single instance, reached directly with no proxy in front, and
-only a minimum length for passwords. This file covers what to change when those assumptions don't
-hold, plus two trade-offs the template makes for you.
+only a minimum length for passwords. This file starts with a checklist for going live, then covers
+what to change when those assumptions don't hold, and the trade-offs the template makes for you.
 
+- [Before going live](#before-going-live)
 - [Running behind a proxy](#running-behind-a-proxy)
 - [Running more than one instance](#running-more-than-one-instance)
 - [Password policy](#password-policy)
 - [The per-account login limit](#the-per-account-login-limit)
 - [Token storage](#token-storage)
+- [TOKEN_SECRET and two-factor secrets](#token_secret-and-two-factor-secrets)
+- [Resetting someone's 2FA](#resetting-someones-2fa)
+
+## Before going live
+
+- [ ] **Remove the debug routes and the debug links in the emails.** Search for `DEBUG` in `src/`.
+      They're plain `GET` links that act as soon as they're opened, and email scanners (Outlook Safe
+      Links, Gmail, corporate gateways) open every link in an email: they'd activate accounts,
+      cancel registrations and revoke codes on their own. Your frontend's pages for those links
+      should also wait for a click before calling the API, for the same reason.
+- [ ] **Generate a real `TOKEN_SECRET`**, one per environment, never reused:
+      `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`. It signs every
+      token and encrypts the 2FA secrets, see
+      [TOKEN_SECRET and two-factor secrets](#token_secret-and-two-factor-secrets).
+- [ ] **Serve both `FRONTEND_URL` and `BACKEND_URL` over HTTPS.** Tokens, codes and passwords
+      travel in every request.
+- [ ] **Check `FRONTEND_URL` (or `CORS_ORIGINS`) is only your real frontend.** It's the only
+      browser origin allowed to call the API, so no `localhost` entries in production.
+- [ ] **Behind a proxy or a platform router?** Set `trust proxy`, see
+      [Running behind a proxy](#running-behind-a-proxy). Otherwise every user shares one rate limit.
+- [ ] **More than one instance?** Move the rate limits to Redis, see
+      [Running more than one instance](#running-more-than-one-instance).
+- [ ] **Decide on a password policy**, see [Password policy](#password-policy). The default only
+      checks the length.
+- [ ] **OAuth:** use separate production clients from your development ones, and register the exact
+      production redirect URIs (`FRONTEND_URL/auth/oauth/google/callback`,
+      `BACKEND_URL/auth/oauth/apple/callback`).
+- [ ] **Metrics:** only set `METRICS_TOKEN` if something scrapes it, and if you can, keep
+      `/metrics` reachable from your monitoring network only.
+- [ ] **Superusers:** set them in the database (see the README), and keep there as few as possible.
+      Nothing in the API can remove one.
 
 ## Running behind a proxy
 
@@ -192,3 +224,26 @@ to date.
    or `localhost` on two ports), otherwise `SameSite` cookies aren't sent.
 
 XSS can still act while the tab is open, but it can no longer take the session away with it.
+
+## TOKEN_SECRET and two-factor secrets
+
+Authenticator secrets have to be read back to check codes, so unlike every other credential they
+can't be hashed. They're stored encrypted (AES-256-GCM) with a key derived from `TOKEN_SECRET`, so a
+database dump alone doesn't hand out working second factors.
+
+**The catch:** changing `TOKEN_SECRET` makes every stored secret unreadable. It already ends every
+session and invalidates every email link, and on top of that every user with 2FA can no longer log
+in until an admin resets it (`POST /admin/users/:userId/resetTwoFactor`). Only rotate it if it has
+leaked, and plan the resets.
+
+If you'd rather rotate it freely, give the encryption its own key: a new `TWO_FACTOR_KEY` variable
+(32+ random bytes) used in [twoFactorSecret.ts](src/server/utils/twoFactor/twoFactorSecret.ts)
+instead of `TOKEN_SECRET`.
+
+## Resetting someone's 2FA
+
+`POST /admin/users/:userId/resetTwoFactor` exists because people lose their phone and their backup
+codes. It's also exactly what someone taking over an account would ask support for, after getting
+hold of the password. Before using it, check who's asking through something the attacker wouldn't
+have, for example a reply from the account's email address plus a detail only the owner knows. The
+owner gets an email whenever it's used, and it's in the audit log.

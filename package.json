@@ -1,8 +1,8 @@
 {
   "name": "user-template",
   "version": "1.0.0",
-  "description": "",
-  "main": "build/src/index.js",
+  "description": "REST API template for user accounts: registration, login, sessions, password resets and admin tools",
+  "main": "build/index.js",
   "engines": {
     "node": ">=24"
   },
@@ -66,6 +66,7 @@
     "mongoose": "^9.11.1",
     "nodemailer": "^10.0.16",
     "pino": "^10.4.0",
-    "pino-http": "^11.0.0"
+    "pino-http": "^11.0.0",
+    "prom-client": "^15.1.3"
   }
 }

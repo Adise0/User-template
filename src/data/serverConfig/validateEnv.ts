@@ -18,10 +18,21 @@ const envSchema = Joi.object({
   FRONTEND_URL: Joi.string().uri().required(),
   BACKEND_URL: Joi.string().uri().required(),
   CORS_ORIGINS: Joi.string().custom(validateUrlList),
+  METRICS_TOKEN: Joi.string().min(32),
+  GOOGLE_CLIENT_ID: Joi.string(),
+  GOOGLE_CLIENT_SECRET: Joi.string(),
+  APPLE_CLIENT_ID: Joi.string(),
+  APPLE_TEAM_ID: Joi.string(),
+  APPLE_KEY_ID: Joi.string(),
+  APPLE_PRIVATE_KEY: Joi.string().pattern(/BEGIN PRIVATE KEY/),
   DNS_SERVERS: Joi.string().custom(validateIpList),
   PORT: Joi.number().port(),
   LOG_LEVEL: Joi.string().valid("fatal", "error", "warn", "info", "debug", "trace", "silent"),
-});
+})
+  // A provider only switches on with all of its variables: half a configuration is a mistake, not
+  // a provider turned off.
+  .and("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET")
+  .and("APPLE_CLIENT_ID", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY");
 
 // Runs once at startup, so a missing or broken variable stops the server right away and says which
 // one it is, instead of surfacing later as a failed request.

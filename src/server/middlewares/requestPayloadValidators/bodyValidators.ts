@@ -6,6 +6,8 @@ import emailChangeData from "../../../data/joiObjects/emailChangeData";
 import emailOrUsernameData from "../../../data/joiObjects/emailOrUsernameData";
 import joiValidationOptions from "../../../data/joiObjects/joiValidationOptions";
 import loginData from "../../../data/joiObjects/loginData";
+import { oauthSignupData } from "../../../data/joiObjects/oauthData";
+import { twoFactorCodeData, twoFactorVerifyData } from "../../../data/joiObjects/twoFactorData";
 import registrationData from "../../../data/joiObjects/registrationData";
 import resetPasswordData from "../../../data/joiObjects/resetPasswordData";
 import signedTokenData from "../../../data/joiObjects/signedTokenData";
@@ -40,3 +42,6 @@ export const resetPasswordDataValidator = bodyValidator(resetPasswordData, "rese
 export const signedTokenDataValidator = bodyValidator(signedTokenData, "token");
 export const updateProfileDataValidator = bodyValidator(updateProfileData, "update profile");
 export const userRoleDataValidator = bodyValidator(userRoleData, "user role");
+export const oauthSignupDataValidator = bodyValidator(oauthSignupData, "OAuth signup");
+export const twoFactorCodeDataValidator = bodyValidator(twoFactorCodeData, "two-factor code");
+export const twoFactorVerifyDataValidator = bodyValidator(twoFactorVerifyData, "two-factor verify");

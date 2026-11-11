@@ -12,6 +12,7 @@ const uri = () => process.env.MONGO_URI as string;
 const validEnv = {
   CONN_STRING: "x",
   TOKEN_SECRET: "y".repeat(32),
+  SMTP_HOST: "smtp.example.com",
   EMAIL: "e",
   EMAIL_PASSWORD: "p",
   FRONTEND_URL: "http://f",
@@ -47,6 +48,16 @@ describe("environment validation", () => {
 
     process.env.DNS_SERVERS = "8.8.8.8,not-an-ip";
     expect(validateEnv).toThrow(/DNS_SERVERS/);
+  });
+
+  test("SMTP_PORT and CORS_ORIGINS are checked when set", () => {
+    process.env.SMTP_PORT = "587";
+    process.env.CORS_ORIGINS = "http://localhost:3000, https://app.example.com";
+    expect(validateEnv).not.toThrow();
+
+    process.env.SMTP_PORT = "not-a-port";
+    process.env.CORS_ORIGINS = "http://ok.com,not a url";
+    expect(validateEnv).toThrow(/SMTP_PORT.*CORS_ORIGINS/);
   });
 });
 
@@ -104,15 +115,18 @@ describe("graceful shutdown", () => {
     });
     setupGracefulShutdown(server);
 
-    const exitCode = await new Promise((resolve) => {
-      const exit = jest.spyOn(process, "exit").mockImplementation((code) => {
-        resolve(code);
-        return undefined as never;
-      });
-
-      process.emit("SIGTERM", "SIGTERM");
-      afterAll(() => exit.mockRestore());
+    let resolveExit: (code: unknown) => void = () => {};
+    const exitCalled = new Promise((resolve) => {
+      resolveExit = resolve;
     });
+    const exit = jest.spyOn(process, "exit").mockImplementation((code) => {
+      resolveExit(code);
+      return undefined as never;
+    });
+
+    process.emit("SIGTERM", "SIGTERM");
+    const exitCode = await exitCalled;
+    exit.mockRestore();
 
     expect(exitCode).toBe(0);
     expect(server.listening).toBe(false);

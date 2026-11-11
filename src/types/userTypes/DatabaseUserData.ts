@@ -34,6 +34,16 @@ interface DatabaseUserData {
   emailChangeToken?: string;
   emailChangeLastSentAt?: Date;
   scheduledDeletionAt?: Date;
+  oauthAccounts: { provider: string; providerId: string; email?: string; linkedAt: Date }[];
+  twoFactor: {
+    secret?: string; // Encrypted, see twoFactorSecret.ts.
+    pendingSecret?: string; // Encrypted. Between setup and enable.
+    enabledAt?: Date;
+    backupCodes: string[]; // SHA-256 hashes, each one works once.
+    lastUsedStep?: number; // Last TOTP time step accepted, so a code can't be replayed.
+    challengeId?: string;
+    challengeAttempts: number;
+  };
   revokedSessions: { sessionId: string; expiresAt: Date }[];
   tokenVersion: number;
   createdAt: Date;
